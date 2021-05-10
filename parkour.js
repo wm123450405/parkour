@@ -11,24 +11,24 @@
  *        height: 300
  *      },
  *      protagonist: {        //主角尺寸
- *        width: 60,
- *        height: 40
+ *        width: 64,
+ *        height: 64
  *      },
  *      awards: [             //奖品尺寸(多种)
  *        {
- *          width: 40,
- *          height: 20
+ *          width: 64,
+ *          height: 64
  *        }
  *      ],
  *      background: {         //背景尺寸
- *        width: 60
+ *        width: 400
  *      },
  *      tile: {               //地块尺寸(所有地块的宽度需要一致)
- *        width: 60           
- *      }
+ *        width: 64           
+ *      },
  *      tiles: [              //地块尺寸(不同高度的地块的设置)
  *        {     
- *          height: 40
+ *          height: 64
  *        }
  *      ],
  *    },
@@ -65,9 +65,9 @@
  *      fps: 25,              //帧率
  *      protagonist: {        //主角配置
  *        run: {              //奔跑配置
- *          start: 100        //开始位置
- *          speed: 20         //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
- *        }
+ *          start: 100,       //开始位置
+ *          speed: 2          //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
+ *        },
  *        jump: {             //跳跃配置
  *          power: 80,        //跳跃力度(px/s)
  *          gravity: 10,      //重力加速度(px/s²)
@@ -79,8 +79,12 @@
  *          score: 1          //奖品获得的积分配置
  *        }
  *      ],
+ *      tile: {
+ *        maxEmpty: 2         //最大空隙
+ *        minLand: 2          //最小陆地
+ *      },
  *      win: {                //胜利条件
- *        time: Infinity      //到达指定时间获胜
+ *        time: Infinity,     //到达指定时间获胜
  *        score: Infinity     //获得指定积分获胜
  *      },
  *      background: {
@@ -96,10 +100,13 @@ var Parkour = function(container, options) {
 
   var assetsCount = 0;
 
-  function initContainer(container) {
+  function initContainer(container, size) {
     if (!container) throw '必须指定容器';
     if (typeof container === 'string') container = document.getElementById(container);
     container.style.overflow = 'hidden';
+    container.style.width = size.width + 'px';
+    container.style.height = size.height + 'px';
+    if (container.style.position !== 'relative' && container.style.position !== 'absolute') container.style.position = 'relative';
     return container;
   }
 
@@ -107,13 +114,19 @@ var Parkour = function(container, options) {
     if (typeof image === 'string') {
       assetsCount++;
       var result = new Image();
-      result.src = image;
       result.onload = function() {
         assetsCount--;
         if (assetsCount === 0) {
           _this.inited();
         }
       }
+      result.onerror = function() {
+        assetsCount--;
+        if (assetsCount === 0) {
+          _this.inited();
+        }
+      }
+      result.src = image;
       return result;
     } else {
       return image;
@@ -154,18 +167,22 @@ var Parkour = function(container, options) {
   function initConfig(config) {
 
   }
-
-  this.container = initContainer(container);
   
   this.options = options || {};
   initSize(this.options.size);
   initAssets(this.options.assets);
   initConfig(this.options.config);
 
+  this.container = initContainer(container, this.options.size.container);
+
+  this.size = this.options.size.container;
+  this.location = 0;
+
   this.checkProtagonist();
   this.checkTiles();
+  this.checkBackgrounds();
 
-  this.resize(this.options.container.clientWidth, this.options.container.clientHeight);
+  // this.resize(this.options.container.clientWidth, this.options.container.clientHeight);
 }
 
 Parkour.Units = {
@@ -175,11 +192,12 @@ Parkour.Units = {
 }
 
 Parkour.prototype = {
-  resize: function(width, height) {
+  // resize: function(width, height) {
 
-  },
+  // },
   inited: function() {
     this.status = 'INITED';
+    this.draw();
     this.onInited && this.onInited();
   },
   /**
@@ -191,17 +209,48 @@ Parkour.prototype = {
     
     this.status = 'PLAYING';
     this.ticker = setInterval(function() {
+      _this.checkProtagonist();
+      _this.checkTiles();
+      _this.checkBackgrounds();
+
       _this.tick();
+      _this.draw();
+      var result = _this.check();
+      if (result) {
+        clearInterval(result);
+        if (result) {
+          _this.onWin && _this.onWin();
+        } else {
+          _this.onOver && _this.onOver();
+        }
+      }
     }, Math.floor(1000 / this.options.config.fps));
   },
   tick: function() {
-    
+    this.location += this.protagonist.speed;
+    this.protagonist.tick();
+    for (var i = 0; i < this.tiles.length; i++) {
+      if (this.tiles[i]) {
+        this.tiles[i].tick();
+      }
+    }
+    for (var i = 0; i < this.backgrounds.length; i++) {
+      this.backgrounds[i].tick();
+    }
   },
-  win: function() {
-    this.onWin && this.onWin();
+  draw: function() {
+    this.protagonist.draw();
+    for (var i = 0; i < this.tiles.length; i++) {
+      if (this.tiles[i]) {
+        this.tiles[i].draw();
+      }
+    }
+    for (var i = 0; i < this.backgrounds.length; i++) {
+      this.backgrounds[i].draw();
+    }
   },
-  over: function() {
-    this.onOver && this.onOver();
+  check: function() {
+
   },
   jump: function() {  //跳跃
     this.protagonist.jump();
@@ -212,23 +261,44 @@ Parkour.prototype = {
   checkTiles: function() {
     if (!this.tiles) this.tiles = [];
     var lastTile = this.tiles[this.tiles.length - 1];
-    while(!this.tiles.length || lastTile.location + lastTile.size.width) {
-      var tileWidth = this.options.size.tile.width;
+    var tileWidth = this.options.size.tile.width;
+    while(!this.tiles.length || lastTile.location < this.location + this.options.size.container.width) {
       var tile;
-      if (lastTile) {
-        tile = new Parkour.Tile(this, 0, { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
+      if (!lastTile) {
+        tile = new Parkour.Tile(this, 0, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
       } else {
         var tileLocation = lastTile.location + tileWidth;
         if (tileLocation < this.options.size.container.width) {
-          tile = new Parkour.Tile(this, tileLocation, { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
+          tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
         } else {
-          var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
-          tile = new Parkour.Tile(this, tileLocation, { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Units.random(this.options.assets.tiles[tileIndex].middle));
+          if (lastTile.empty) {
+            var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
+            tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Units.random(this.options.assets.tiles[tileIndex].left));
+          } else {
+            switch(lastTile.type) {
+              case 'middle':
+                if (Math.random() < 0.2) {
+                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'right', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].right));
+                } else {
+                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].middle));
+                }
+                break;
+              case 'left':
+                tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].middle));
+                break;
+              case 'right':
+                tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height });
+                break;
+            }
+          }
         }
       }
       this.tiles.push(tile);
       lastTile = tile;
     }
+  },
+  checkBackgrounds: function() {
+    if (!this.backgrounds) this.backgrounds = [];
   }
 }
 
@@ -243,12 +313,17 @@ Parkour.Protagonist = function(parkour, config, size, assets) {
 
   this.container = this.container;
 
-  this.location = this.config.running.start;  //主角当前的位置
+  this.location = this.config.run.start;  //主角当前的位置
   this.high = 100; //主角高度=容器高度-地块的高度-人物高度
-  this.speed = this.config.running.speed; //主角的移动速度(撞墙后停止)
+  this.speed = this.config.run.speed; //主角的移动速度(撞墙后停止)
+  
+  this.el = this.initElement();
 }
 
 Parkour.Protagonist.prototype = {
+  initElement: function() {
+    this.assets
+  },
   tick: function() {
     switch (this.status) {
       case 'READY':
@@ -271,13 +346,6 @@ Parkour.Protagonist.prototype = {
     }
   },
   draw: function() {
-    this.protagonist.draw();
-    for (var i = 0; i < this.tiles.length; i++) {
-      this.tiles[i].draw();
-    }
-    for (var i = 0; i < this.backgrounds.length; i++) {
-      this.backgrounds[i].draw();
-    }
   },
   run: function() {
 
@@ -290,30 +358,45 @@ Parkour.Protagonist.prototype = {
   }
 }
 
-Parkour.Tile = function(parkour, location, size, assets) {
+Parkour.Tile = function(parkour, location, index, type, size, assets) {
   this.parkour = parkour;
   this.location = location;
   this.size = size;
+  this.index = index;
+  this.type = type;
   this.assets = assets;
 
-  this.el = this.initElement();
+  if (this.assets) {
+    this.empty = false;
+    this.el = this.initElement();
+  } else {
+    this.empty = true;
+  }
 }
 
 Parkour.Tile.prototype = {
   initElement: function() {
     var element = this.assets.cloneNode();
-    this.parkour.container.insertAfter(element, this.parkour.container.lastChild);
+    element.style.position = 'absolute';
+    element.style.width = this.size.width + 'px';
+    element.style.height = this.size.height + 'px';
+    this.parkour.container.appendChild(element);
     return element;
   },
   tick: function() {
     
   },
   draw: function() {
-
+    if (!this.empty) {
+      this.el.style.top = (this.parkour.size.height - this.size.height) + 'px';
+      this.el.style.left = (this.location - this.parkour.location) + 'px';
+    }
   },
   destory: function() {
     if (this.location + this.size.width + this.parkour.location) {
-      this.parkour.container.removeChild(this.el);
+      if (!this.empty) {
+        this.parkour.container.removeChild(this.el);
+      }
       return true;
     } else {
       return false;

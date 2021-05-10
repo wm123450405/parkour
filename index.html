@@ -6,10 +6,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <script src="parkour.js"></script>
+  <script>
+    window.onload = function() {
+      var parkour = new Parkour('parkour', {
+        size: {                 //各尺寸配置
+          container: {          //容器尺寸
+            width: 400,       
+            height: 300
+          },
+          protagonist: {        //主角尺寸
+            width: 64,
+            height: 64
+          },
+          awards: [             //奖品尺寸(多种)
+            {
+              width: 64,
+              height: 64
+            }
+          ],
+          background: {         //背景尺寸
+            width: 400
+          },
+          tile: {               //地块尺寸(所有地块的宽度需要一致)
+            width: 64           
+          },
+          tiles: [              //地块尺寸(不同高度的地块的设置)
+            {     
+              height: 64
+            }
+          ],
+        },
+        assets: {               //各资源的配置
+          protagonist: {        //主角资源配置
+            running: [          //奔跑动作的帧图片
+              '....jpg'
+            ],
+            jumping: '....jpg'  //跳跃动作的图片
+          },
+          background: [         //背景图,(背景滚动时可以多张首尾衔接)
+            '....jpg'
+          ],
+          tiles: [              //地块图片资源
+            {
+              left: [           //左侧地块图片资源(多个时每次随机一个)
+                'images/tile-left.png'
+              ],
+              middle: [         //中间地块图片资源(多个时每次随机一个)
+                'images/tile-middle.png'
+              ],
+              right: [          //右侧地块图片资源(多个时每次随机一个)
+                'images/tile-right.png'
+              ]
+            }
+          ],
+          awards: [
+            {
+              normal: '....jpg' //正常状态下的奖品图片
+            }
+          ]
+        },
+        config: {
+          fps: 25,              //帧率
+          protagonist: {        //主角配置
+            run: {              //奔跑配置
+              start: 100,       //开始位置
+              speed: 4          //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
+            },
+            jump: {             //跳跃配置
+              power: 80,        //跳跃力度(px/s)
+              gravity: 10,      //重力加速度(px/s²)
+              time: 1500        //空中停留时间
+            }
+          },
+          awards: [             //奖品配置
+            {
+              score: 1          //奖品获得的积分配置
+            }
+          ],
+          win: {                //胜利条件
+            time: Infinity,     //到达指定时间获胜
+            score: Infinity     //获得指定积分获胜
+          },
+          background: {
+            speed: 10           //背景卷动的速度
+          }
+        }
+      });
+      parkour.onInited = function() {
+        parkour.start();
+      }
+    }
+  </script>
 </head>
 <body>
-  <canvas id="parkour">
+  <div id="parkour">
     
-  </canvas>
+  </div>
 </body>
 </html>
