@@ -158,11 +158,11 @@ var Parkour = function(container, options) {
     for (var i = 0; i < assets.tiles.length; i++) {
       var tile = assets.tiles[i];
       if (!tile.left || !tile.left.length) throw '必须配置地块左侧图片';
-      for (var i = 0; i < tile.left.length; i++) tile.left[i] = initImage(tile.left[i]);
+      for (var j = 0; j < tile.left.length; j++) tile.left[j] = initImage(tile.left[j]);
       if (!tile.middle || !tile.middle.length) throw '必须配置地块中间图片';
-      for (var i = 0; i < tile.middle.length; i++) tile.middle[i] = initImage(tile.middle[i]);
+      for (var j = 0; j < tile.middle.length; j++) tile.middle[j] = initImage(tile.middle[j]);
       if (!tile.right || !tile.right.length) throw '必须配置地块右侧图片';
-      for (var i = 0; i < tile.right.length; i++) tile.right[i] = initImage(tile.right[i]);
+      for (var j = 0; j < tile.right.length; j++) tile.right[j] = initImage(tile.right[j]);
     }
     if (!assets.awards || !assets.awards.length) throw '必须配置奖品图片'
     for (var i = 0; i < assets.awards.length; i++) assets.awards[i].normal = initImage(assets.awards[i].normal);
@@ -365,8 +365,9 @@ Parkour.prototype = {
       var tile = this.findTile(this.options.config.protagonist.run.start);
       this.protagonist = new Parkour.Protagonist(this, tile, this.options.config.protagonist, this.options.size.protagonist, this.options.assets.protagonist);
     } else {
-      var tile = this.findTile(this.protagonist.location);
-      this.protagonist.tile = tile;
+      this.protagonist.tile = this.findTile(this.protagonist.location);
+      this.protagonist.right = this.findTile(this.protagonist.location + this.protagonist.size.width / 2);
+      this.protagonist.left = this.findTile(this.protagonist.location - this.protagonist.size.width / 2);
     }
   },
   checkTiles: function() {
@@ -453,7 +454,7 @@ Parkour.prototype = {
  */
 Parkour.Protagonist = function(parkour, tile, config, size, assets) {
   this.parkour = parkour;
-  this.tile = tile;
+  this.tile = this.right = this.left = tile;
   this.config = config;
   this.size = size;
   this.assets = assets;
@@ -577,7 +578,7 @@ Parkour.Protagonist.prototype = {
   check: function() {
     switch (this.status) {
       case 'RUNNING':
-        if (this.tile.empty) {
+        if (this.left.empty) {
           this.status = 'JUMPING';
           this.frame = 0;
           this.jumpHigh = this.high;  //记录起跳位置
@@ -585,13 +586,13 @@ Parkour.Protagonist.prototype = {
         }
         break;
       case 'JUMPING':
-        if (!this.tile.empty) {
-          if (this.tile.size.height >= this.high) { //低于地面了
-            if (this.tile.type === 'left' && this.tile.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps) {
+        if (!this.right.empty) {
+          if (this.right.size.height >= this.high) { //低于地面了
+            if (this.right.type === 'left' && this.right.location >= this.location + this.size.width / 2 - this.speed && this.right.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps) {
               this.status = 'DEADING';
             } else {
               this.status = 'RUNNING';
-              this.high = this.tile.size.height;
+              this.high = this.right.size.height;
               this.frame = 0;
             }
           }

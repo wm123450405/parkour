@@ -33,7 +33,13 @@
           },
           tiles: [              //地块尺寸(不同高度的地块的设置)
             {     
-              height: 32
+              height: 54
+            },
+            {     
+              height: 36
+            },
+            {     
+              height: 72
             }
           ],
         },
@@ -52,14 +58,36 @@
           ],
           tiles: [              //地块图片资源
             {
+              left: [
+                'images/tile-2-left.png'
+              ],
+              middle: [
+                'images/tile-2-middle.png'
+              ],
+              right: [
+                'images/tile-2-right.png'
+              ]
+            },
+            {
               left: [           //左侧地块图片资源(多个时每次随机一个)
-                'images/tile-left.png'
+                'images/tile-1-left.png'
               ],
               middle: [         //中间地块图片资源(多个时每次随机一个)
-                'images/tile-middle.png'
+                'images/tile-1-middle.png'
               ],
               right: [          //右侧地块图片资源(多个时每次随机一个)
-                'images/tile-right.png'
+                'images/tile-1-right.png'
+              ]
+            },
+            {
+              left: [
+                'images/tile-3-left.png'
+              ],
+              middle: [
+                'images/tile-3-middle.png'
+              ],
+              right: [
+                'images/tile-3-right.png'
               ]
             }
           ],
@@ -91,7 +119,7 @@
             score: 5     //获得指定积分获胜
           },
           background: {
-            speed: 10           //背景卷动的速度
+            speed: 1           //背景卷动的速度
           }
         }
       });
