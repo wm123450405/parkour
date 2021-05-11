@@ -101,6 +101,11 @@ var Parkour = function(container, options) {
 
   var assetsCount = 0;
 
+  /**
+   * 初始化容器
+   * @param {String|Element} container 
+   * @param {*} size 
+   */
   function initContainer(container, size) {
     if (!container) throw '必须指定容器';
     if (typeof container === 'string') container = document.getElementById(container);
@@ -112,6 +117,10 @@ var Parkour = function(container, options) {
     return container;
   }
 
+  /**
+   * 加载图片资源
+   * @param {} image 
+   */
   function initImage(image) {
     if (typeof image === 'string') {
       assetsCount++;
@@ -191,10 +200,14 @@ var Parkour = function(container, options) {
 
   this.container = initContainer(container, this.options.size.container);
 
+  //整个容器的尺寸
   this.size = this.options.size.container;
+  //记录游戏的开始时间
   this.begin = 0;
+  //记录游戏的得分
   this.score = 0;
-  this.camera = 0; //相机位置
+  //相机位置
+  this.camera = 0;
 
   this.checkTiles();
   this.checkProtagonist();
@@ -370,6 +383,9 @@ Parkour.prototype = {
       this.protagonist.left = this.findTile(this.protagonist.location - this.protagonist.size.width / 2);
     }
   },
+  /**
+   * 检查地块,右侧不足时填补新的地块,左侧超出屏幕时移除地块
+   */
   checkTiles: function() {
     if (!this.tiles) this.tiles = [];
     var lastTile = this.tiles[this.tiles.length - 1];
@@ -412,6 +428,9 @@ Parkour.prototype = {
       return tile.destory();
     });
   },
+  /**
+   * 检查奖品,右侧无奖品时随机产生奖品,左侧奖品超出屏幕时或奖品被获得后移除
+   */
   checkAwards: function() {
     if (!this.awards) this.awards = [];
     var lastAward = this.awards[this.awards.length - 1];
@@ -435,9 +454,16 @@ Parkour.prototype = {
       return award.destory();
     });
   },
+  /**
+   * 检查背景图片,右侧无背景时随机产生背景,左侧背景超出屏幕时移除
+   */
   checkBackgrounds: function() {
     if (!this.backgrounds) this.backgrounds = [];
   },
+  /**
+   * 加分
+   * @param {Number} score 
+   */
   addScore: function(score) {
     this.score += score;
     this.onScoreChange && this.onScoreChange(this.score, this.options.config.win.score);
