@@ -266,6 +266,12 @@ Parkour.prototype = {
     this.draw();
     this.onInited && this.onInited();
   },
+  isPlaying() {
+    return this.status === 'PLAYING';
+  },
+  isInited() {
+    return this.status === 'INITED';
+  },
   /**
    * 开始游戏
    */

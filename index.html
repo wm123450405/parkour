@@ -7,8 +7,9 @@
   <title>Document</title>
   <script src="parkour.js"></script>
   <script>
+    var parkour;
     function initParkour() {
-      var parkour = new Parkour('parkour', {
+      parkour = new Parkour('parkour', {
         size: {                 //各尺寸配置
           container: {          //容器尺寸
             width: 400,       
@@ -95,26 +96,30 @@
         }
       });
       parkour.onInited = function() {
-        parkour.start();
+        
       }
       parkour.onScoreChange = function(score, max) {
         document.getElementById('score').innerHTML = score + '/' + max;
       }
       parkour.onWin = function() {
         alert('获胜');
+        initParkour();
       }
       parkour.onLose = function() {
         alert('游戏结束');
-        parkour = initParkour();
+        initParkour();
       }
-      document.getElementById('parkour').onclick = function() {
-        parkour.jump();
-      }
-      return parkour;
     }
 
     window.onload = function() {
       initParkour();
+      document.getElementById('parkour').onclick = function() {
+        if (parkour.isPlaying()) {
+          parkour.jump();
+        } else if (parkour.isInited()) {
+          parkour.start();
+        }
+      }
     }
   </script>
 </head>
