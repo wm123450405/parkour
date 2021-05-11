@@ -473,6 +473,7 @@ Parkour.Protagonist.prototype = {
         this.els.jumping.style.display = 'block';
         break;
       case 'DEADING':
+        this.els.jumping.style.display = 'block';
         break;
     }
   },
@@ -489,7 +490,6 @@ Parkour.Protagonist.prototype = {
       case 'JUMPING':
         if (!this.tile.empty) {
           if (this.tile.size.height >= this.high) { //低于地面了
-            //todo:需要判断是不是已经掉在悬崖上了
             if (this.tile.type === 'left' && this.tile.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps) {
               this.status = 'DEADING';
             } else {
