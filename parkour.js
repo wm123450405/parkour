@@ -292,11 +292,13 @@ Parkour.prototype = {
 
       if (typeof result !== 'undefined') {
         clearInterval(_this.ticker);
-        if (result) {
-          _this.onWin && _this.onWin();
-        } else {
-          _this.onLose && _this.onLose();
-        }
+        setTimeout(function() {
+          if (result) {
+            _this.onWin && _this.onWin();
+          } else {
+            _this.onLose && _this.onLose();
+          }
+        })
       }
     }, Math.floor(1000 / this.options.config.fps));
   },
@@ -336,7 +338,7 @@ Parkour.prototype = {
         this.awards[i].get();
       }
     }
-    if (this.score > this.options.config.win.score || (+Date.now() - this.begin) > this.options.config.win.time) {
+    if (this.score >= this.options.config.win.score || (+Date.now() - this.begin) >= this.options.config.win.time) {
       return true;
     } else if (this.protagonist.dead()) {
       return false;
