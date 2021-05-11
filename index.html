@@ -15,8 +15,8 @@
             height: 300
           },
           protagonist: {        //主角尺寸
-            width: 64,
-            height: 64
+            width: 16,
+            height: 32
           },
           awards: [             //奖品尺寸(多种)
             {
@@ -28,20 +28,23 @@
             width: 400
           },
           tile: {               //地块尺寸(所有地块的宽度需要一致)
-            width: 64           
+            width: 32           
           },
           tiles: [              //地块尺寸(不同高度的地块的设置)
             {     
-              height: 64
+              height: 32
             }
           ],
         },
         assets: {               //各资源的配置
           protagonist: {        //主角资源配置
+            staying: 'images/protagonist-staying.png',         //
             running: [          //奔跑动作的帧图片
-              '....jpg'
+              'images/protagonist-running-1.png',
+              'images/protagonist-running-2.png',
+              'images/protagonist-running-3.png'
             ],
-            jumping: '....jpg'  //跳跃动作的图片
+            jumping: 'images/protagonist-jumping.png'  //跳跃动作的图片
           },
           background: [         //背景图,(背景滚动时可以多张首尾衔接)
             '....jpg'
@@ -73,7 +76,7 @@
               speed: 4          //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
             },
             jump: {             //跳跃配置
-              power: 80,        //跳跃力度(px/s)
+              power: 128,        //跳跃力度(px/s)
               gravity: 10,      //重力加速度(px/s²)
               time: 1500        //空中停留时间
             }
@@ -94,6 +97,9 @@
       });
       parkour.onInited = function() {
         parkour.start();
+      }
+      document.getElementById('parkour').onclick = function() {
+        parkour.jump();
       }
     }
   </script>

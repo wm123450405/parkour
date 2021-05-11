@@ -34,6 +34,7 @@
  *    },
  *    assets: {               //各资源的配置
  *      protagonist: {        //主角资源配置
+ *        staying: '....jpg'  //主角站立时的图片
  *        running: [          //奔跑动作的帧图片
  *           '....jpg'
  *        ],
@@ -148,6 +149,8 @@ var Parkour = function(container, options) {
     for (var i = 0; i < assets.protagonist.running.length; i++) assets.protagonist.running[i] = initImage(assets.protagonist.running[i]);
     if (!assets.protagonist.jumping) throw '必须配置主角跳跃图片';
     assets.protagonist.jumping = initImage(assets.protagonist.jumping);
+    if (!assets.protagonist.staying) throw '必须配置主角跳跃图片';
+    assets.protagonist.staying = initImage(assets.protagonist.staying);
     if (!assets.background || !assets.background.length) throw '必须配置背景图';
     for (var i = 0; i < assets.background.length; i++) assets.background[i] = initImage(assets.background[i]);
     if (!assets.tiles || !assets.tiles.length) throw '必须配置地块';
@@ -176,18 +179,52 @@ var Parkour = function(container, options) {
   this.container = initContainer(container, this.options.size.container);
 
   this.size = this.options.size.container;
-  this.location = 0;
+  this.camera = 0; //相机位置
 
-  this.checkProtagonist();
   this.checkTiles();
+  this.checkProtagonist();
   this.checkBackgrounds();
 
   // this.resize(this.options.container.clientWidth, this.options.container.clientHeight);
 }
 
 Parkour.Units = {
+  /**
+   * 从数组中随机出一个元素
+   * @param {Array} array 
+   * @returns 
+   */
   random: function(array) {
     return array[Math.floor(Math.random() * array.length)];
+  },
+  /**
+   * 获取数组最后符合条件元素的数量
+   * @param {Array} array 
+   * @param {Function} provider (element: any) => boolean
+   */
+  last: function(array, provider) {
+    var count = 0;
+    for (var i = array.length - 1; i >= 0; i--) {
+      if (provider(array[i])) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  },
+  /**
+   * 删除数组中所有符合条件的元素
+   * @param {Array}} array 
+   * @param {Function} provider (element: any) => boolean
+   */
+  remove: function(array, provider) {
+    for (var i = 0; i < array.length; i++) {
+      if (provider(array[i])) {
+        array.splice(i, 1);
+        i--;
+      }
+    }
   }
 }
 
@@ -208,14 +245,23 @@ Parkour.prototype = {
 
     
     this.status = 'PLAYING';
+    this.protagonist.run();
+
     this.ticker = setInterval(function() {
-      _this.checkProtagonist();
       _this.checkTiles();
+      _this.checkProtagonist();
       _this.checkBackgrounds();
 
       _this.tick();
-      _this.draw();
+      
+      _this.checkTiles();
+      _this.checkProtagonist();
+      _this.checkBackgrounds();
+
       var result = _this.check();
+
+      _this.draw();
+
       if (result) {
         clearInterval(result);
         if (result) {
@@ -227,7 +273,7 @@ Parkour.prototype = {
     }, Math.floor(1000 / this.options.config.fps));
   },
   tick: function() {
-    this.location += this.protagonist.speed;
+    this.camera += this.protagonist.speed;
     this.protagonist.tick();
     for (var i = 0; i < this.tiles.length; i++) {
       if (this.tiles[i]) {
@@ -250,28 +296,41 @@ Parkour.prototype = {
     }
   },
   check: function() {
-
+    this.protagonist.check();
   },
   jump: function() {  //跳跃
     this.protagonist.jump();
   },
+  findTile: function(location) {
+    for (var i = 0; i < this.tiles.length; i++) {
+      if (this.tiles[i].location <= location && this.tiles[i].location + this.tiles[i].size.width > location) {
+        return this.tiles[i];
+      }
+    }
+  },
   checkProtagonist: function() {
-    this.protagonist = new Parkour.Protagonist(this, this.options.config.protagonist, this.options.size.protagonist, this.options.assets.protagonist);
+    if (!this.protagonist) {
+      var tile = this.findTile(this.options.config.protagonist.run.start);
+      this.protagonist = new Parkour.Protagonist(this, tile, this.options.config.protagonist, this.options.size.protagonist, this.options.assets.protagonist);
+    } else {
+      var tile = this.findTile(this.protagonist.location);
+      this.protagonist.tile = tile;
+    }
   },
   checkTiles: function() {
     if (!this.tiles) this.tiles = [];
     var lastTile = this.tiles[this.tiles.length - 1];
     var tileWidth = this.options.size.tile.width;
-    while(!this.tiles.length || lastTile.location < this.location + this.options.size.container.width) {
+    while(!this.tiles.length || lastTile.location < this.camera + this.options.size.container.width) {
       var tile;
-      if (!lastTile) {
+      if (!lastTile) {  //没有前一个地块,表示第一个地块
         tile = new Parkour.Tile(this, 0, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
       } else {
         var tileLocation = lastTile.location + tileWidth;
-        if (tileLocation < this.options.size.container.width) {
+        if (tileLocation < this.options.size.container.width) {  //第一屏的地块
           tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
         } else {
-          if (lastTile.empty) {
+          if (lastTile.empty) { //前一个地块时空地块(悬崖)
             var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
             tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Units.random(this.options.assets.tiles[tileIndex].left));
           } else {
@@ -302,8 +361,17 @@ Parkour.prototype = {
   }
 }
 
-Parkour.Protagonist = function(parkour, config, size, assets) {
+/**
+ * 
+ * @param {Parkour} parkour 
+ * @param {Parkour.Tile} tile 当前所处的地块上
+ * @param {*} config 
+ * @param {*} size 
+ * @param {*} assets 
+ */
+Parkour.Protagonist = function(parkour, tile, config, size, assets) {
   this.parkour = parkour;
+  this.tile = tile;
   this.config = config;
   this.size = size;
   this.assets = assets;
@@ -314,15 +382,48 @@ Parkour.Protagonist = function(parkour, config, size, assets) {
   this.container = this.container;
 
   this.location = this.config.run.start;  //主角当前的位置
-  this.high = 100; //主角高度=容器高度-地块的高度-人物高度
+  this.high = tile.size.height; //主角高度=地块的高度
   this.speed = this.config.run.speed; //主角的移动速度(撞墙后停止)
   
-  this.el = this.initElement();
+  this.els = this.initElement();
 }
 
 Parkour.Protagonist.prototype = {
   initElement: function() {
-    this.assets
+    var protagonist = document.createElement('div');
+
+    var staying = this.assets.staying.cloneNode();
+    staying.style.width = this.size.width + 'px';
+    staying.style.height = this.size.height + 'px';
+    staying.style.display = 'none';
+    protagonist.appendChild(staying);
+
+    var running = [];
+    for (var i = 0; i < this.assets.running.length; i++) {
+      var r = this.assets.running[i].cloneNode();
+      r.style.width = this.size.width + 'px';
+      r.style.height = this.size.height + 'px';
+      r.style.display = 'none';
+      protagonist.appendChild(r);
+      running.push(r);
+    }
+
+    var jumping = this.assets.jumping.cloneNode();
+    jumping.style.width = this.size.width + 'px';
+    jumping.style.height = this.size.height + 'px';
+    jumping.style.display = 'none';
+    protagonist.appendChild(jumping);
+
+    protagonist.style.position = 'absolute';
+    protagonist.style.width = this.size.width + 'px';
+    protagonist.style.height = this.size.height + 'px';
+    this.parkour.container.appendChild(protagonist);
+    return {
+      el: protagonist,
+      staying: staying,
+      running: running,
+      jumping: jumping
+    };
   },
   tick: function() {
     switch (this.status) {
@@ -330,34 +431,98 @@ Parkour.Protagonist.prototype = {
         this.frame = 0;
         break;
       case 'RUNNING':
+        this.location += this.speed;
         this.frame = (this.frame + 1) % this.assets.running.length;
         break;
       case 'JUMPING':
-        this.frame = this.frame + 1;
-        //位移 = 初速度 + 1/2 * 加速度 * 时间^2    (S=Vt+1/2at²)
+        this.location += this.speed;
+        this.frame++;
+        //位移 = 初速度 * 时间 + 1/2 * 加速度 * 时间^2    (S=vt+1/2at²)
         //          1
-        // S = Vt + — a t²
+        // S = v t + — a t²
         //          2
-        this.high = this.jumpHigh - (this.config.power / this.parkour.config.fps + (-this.config.gravity / this.parkour.config.fps) * this.frame * this.frame / 2);
+        this.high = this.jumpHigh + (this.jumpPower / this.parkour.options.config.fps * this.frame + (-this.config.jump.gravity / this.parkour.options.config.fps) * this.frame * this.frame / 2);
         break;
-      case 'DEAD':
-        this.frame = 0;
+      case 'DEADING':
+        this.frame++;
+        this.high = this.jumpHigh + (this.jumpPower / this.parkour.options.config.fps * this.frame + (-this.config.jump.gravity / this.parkour.options.config.fps) * this.frame * this.frame / 2);
         break;
     }
   },
+  clear: function() {
+    this.els.staying.style.display = 'none';
+    this.els.jumping.style.display = 'none';
+    for (var i = 0; i < this.els.running.length; i++) {
+      this.els.running[i].style.display = 'none';
+    }
+  },
   draw: function() {
+    this.clear();
+    
+    this.els.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
+    this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+
+    switch (this.status) {
+      case 'READY':
+        this.els.staying.style.display = 'block';
+        break;
+      case 'RUNNING':
+        this.els.running[this.frame].style.display = 'block';
+        break;
+      case 'JUMPING':
+        this.els.jumping.style.display = 'block';
+        break;
+      case 'DEADING':
+        break;
+    }
+  },
+  check: function() {
+    switch (this.status) {
+      case 'RUNNING':
+        if (this.tile.empty) {
+          this.status = 'JUMPING';
+          this.frame = 0;
+          this.jumpHigh = this.high;  //记录起跳位置
+          this.jumpPower = 0; //起跳力度
+        }
+        break;
+      case 'JUMPING':
+        if (!this.tile.empty) {
+          if (this.tile.size.height >= this.high) { //低于地面了
+            //todo:需要判断是不是已经掉在悬崖上了
+            if (this.tile.type === 'left' && this.tile.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps) {
+              this.status = 'DEADING';
+            } else {
+              this.status = 'RUNNING';
+              this.high = this.tile.size.height;
+              this.frame = 0;
+            }
+          }
+        }
+    }
   },
   run: function() {
-
+    this.status = 'RUNNING';
   },
   jump: function() {
     if (this.status === 'RUNNING') { //只有跑步时可以跳跃
       this.status = 'JUMPING';
+      this.frame = 0;
       this.jumpHigh = this.high;  //记录起跳位置
+      this.jumpPower = this.config.jump.power; //起跳力度
     }
   }
 }
 
+/**
+ * 
+ * @param {Parkour} parkour 
+ * @param {Number} location 地块的位置
+ * @param {Number} index 地块的类型,表示options中tiles的第几种地块
+ * @param {Number} type 地块的样式,left/middle/right
+ * @param {*} size 地块的尺寸
+ * @param {*} assets 地块的图片资源/为空时表示空地快(悬崖)
+ */
 Parkour.Tile = function(parkour, location, index, type, size, assets) {
   this.parkour = parkour;
   this.location = location;
@@ -389,11 +554,11 @@ Parkour.Tile.prototype = {
   draw: function() {
     if (!this.empty) {
       this.el.style.top = (this.parkour.size.height - this.size.height) + 'px';
-      this.el.style.left = (this.location - this.parkour.location) + 'px';
+      this.el.style.left = (this.location - this.parkour.camera) + 'px';
     }
   },
   destory: function() {
-    if (this.location + this.size.width + this.parkour.location) {
+    if (this.location + this.size.width + this.parkour.camera) {
       if (!this.empty) {
         this.parkour.container.removeChild(this.el);
       }
