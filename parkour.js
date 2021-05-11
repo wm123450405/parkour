@@ -596,7 +596,16 @@ Parkour.Protagonist.prototype = {
               this.frame = 0;
             }
           }
+        } else if (!this.left.empty) {
+          if (this.left.size.height >= this.high) { //低于地面了
+            
+              this.status = 'RUNNING';
+              this.high = this.right.size.height;
+              this.frame = 0;
+            
+          }
         }
+
         break;
     }
   },
