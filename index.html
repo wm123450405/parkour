@@ -7,7 +7,7 @@
   <title>Document</title>
   <script src="parkour.js"></script>
   <script>
-    window.onload = function() {
+    function initParkour() {
       var parkour = new Parkour('parkour', {
         size: {                 //各尺寸配置
           container: {          //容器尺寸
@@ -20,8 +20,8 @@
           },
           awards: [             //奖品尺寸(多种)
             {
-              width: 64,
-              height: 64
+              width: 12,
+              height: 18
             }
           ],
           background: {         //背景尺寸
@@ -64,7 +64,7 @@
           ],
           awards: [
             {
-              normal: '....jpg' //正常状态下的奖品图片
+              normal: 'images/award-1.png' //正常状态下的奖品图片
             }
           ]
         },
@@ -76,9 +76,8 @@
               speed: 4          //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
             },
             jump: {             //跳跃配置
-              power: 128,        //跳跃力度(px/s)
-              gravity: 10,      //重力加速度(px/s²)
-              time: 1500        //空中停留时间
+              power: 8,         //跳跃力度(px/f)
+              gravity: 0.4      //重力加速度(px/f²)
             }
           },
           awards: [             //奖品配置
@@ -88,7 +87,7 @@
           ],
           win: {                //胜利条件
             time: Infinity,     //到达指定时间获胜
-            score: Infinity     //获得指定积分获胜
+            score: 5     //获得指定积分获胜
           },
           background: {
             speed: 10           //背景卷动的速度
@@ -98,9 +97,24 @@
       parkour.onInited = function() {
         parkour.start();
       }
+      parkour.onScoreChange = function(score, max) {
+        document.getElementById('score').innerHTML = score + '/' + max;
+      }
+      parkour.onWin = function() {
+        alert('获胜');
+      }
+      parkour.onLose = function() {
+        alert('游戏结束');
+        parkour = initParkour();
+      }
       document.getElementById('parkour').onclick = function() {
         parkour.jump();
       }
+      return parkour;
+    }
+
+    window.onload = function() {
+      initParkour();
     }
   </script>
 </head>
@@ -108,5 +122,6 @@
   <div id="parkour">
     
   </div>
+  <div id="score"></div>
 </body>
 </html>

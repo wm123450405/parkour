@@ -108,6 +108,7 @@ var Parkour = function(container, options) {
     container.style.width = size.width + 'px';
     container.style.height = size.height + 'px';
     if (container.style.position !== 'relative' && container.style.position !== 'absolute') container.style.position = 'relative';
+    container.innerHTML = '';
     return container;
   }
 
@@ -168,7 +169,19 @@ var Parkour = function(container, options) {
   }
 
   function initConfig(config) {
-
+    if (!config.fps) throw '必须配置帧率';
+    if (!config.protagonist) throw '必须设置主角配置';
+    if (!config.protagonist.run) throw '必须设置主角奔跑配置';
+    if (!config.protagonist.run.speed) throw '必须配置主角奔跑速度';
+    if (typeof config.protagonist.run.speed === 'number') {
+      var speed = config.protagonist.run.speed;
+      config.protagonist.run.speed = function() {
+        return speed;
+      };
+    }
+    if (!config.protagonist.run.start) throw '必须配置主角起跑位置';
+    if (!config.protagonist.jump) throw '必须设置主角配置配置';
+    if (!config.win) throw '必须设置胜利条件';
   }
   
   this.options = options || {};
@@ -179,16 +192,19 @@ var Parkour = function(container, options) {
   this.container = initContainer(container, this.options.size.container);
 
   this.size = this.options.size.container;
+  this.begin = 0;
+  this.score = 0;
   this.camera = 0; //相机位置
 
   this.checkTiles();
   this.checkProtagonist();
+  this.checkAwards();
   this.checkBackgrounds();
-
+  
   // this.resize(this.options.container.clientWidth, this.options.container.clientHeight);
 }
 
-Parkour.Units = {
+Parkour.Utils = {
   /**
    * 从数组中随机出一个元素
    * @param {Array} array 
@@ -202,7 +218,7 @@ Parkour.Units = {
    * @param {Array} array 
    * @param {Function} provider (element: any) => boolean
    */
-  last: function(array, provider) {
+  lastCount: function(array, provider) {
     var count = 0;
     for (var i = array.length - 1; i >= 0; i--) {
       if (provider(array[i])) {
@@ -212,6 +228,19 @@ Parkour.Units = {
       }
     }
     return count;
+  },
+  /**
+   * 获取数组中最后一个符合条件的元素
+   * @param {Array} array 
+   * @param {Function} provider (element: any) => boolean
+   * @returns 
+   */
+  last: function(array, provider) {
+    for (var i = array.length - 1; i >= 0; i--) {
+      if (provider(array[i])) {
+        return array[i];
+      }
+    }
   },
   /**
    * 删除数组中所有符合条件的元素
@@ -242,32 +271,31 @@ Parkour.prototype = {
    */
   start: function() {
     var _this = this;
-
     
     this.status = 'PLAYING';
     this.protagonist.run();
+    this.begin = +Date.now();
+    this.addScore(-this.score);
 
     this.ticker = setInterval(function() {
-      _this.checkTiles();
-      _this.checkProtagonist();
-      _this.checkBackgrounds();
 
       _this.tick();
       
       _this.checkTiles();
       _this.checkProtagonist();
+      _this.checkAwards();
       _this.checkBackgrounds();
 
       var result = _this.check();
 
       _this.draw();
 
-      if (result) {
-        clearInterval(result);
+      if (typeof result !== 'undefined') {
+        clearInterval(_this.ticker);
         if (result) {
           _this.onWin && _this.onWin();
         } else {
-          _this.onOver && _this.onOver();
+          _this.onLose && _this.onLose();
         }
       }
     }, Math.floor(1000 / this.options.config.fps));
@@ -280,6 +308,9 @@ Parkour.prototype = {
         this.tiles[i].tick();
       }
     }
+    for (var i = 0; i < this.awards.length; i++) {
+      this.awards[i].tick();
+    }
     for (var i = 0; i < this.backgrounds.length; i++) {
       this.backgrounds[i].tick();
     }
@@ -291,12 +322,25 @@ Parkour.prototype = {
         this.tiles[i].draw();
       }
     }
+    for (var i = 0; i < this.awards.length; i++) {
+      this.awards[i].draw();
+    }
     for (var i = 0; i < this.backgrounds.length; i++) {
       this.backgrounds[i].draw();
     }
   },
   check: function() {
     this.protagonist.check();
+    for (var i = 0; i < this.awards.length; i++) {
+      if (this.protagonist.checkAward(this.awards[i])) {
+        this.awards[i].get();
+      }
+    }
+    if (this.score > this.options.config.win.score || (+Date.now() - this.begin) > this.options.config.win.time) {
+      return true;
+    } else if (this.protagonist.dead()) {
+      return false;
+    }
   },
   jump: function() {  //跳跃
     this.protagonist.jump();
@@ -324,26 +368,26 @@ Parkour.prototype = {
     while(!this.tiles.length || lastTile.location < this.camera + this.options.size.container.width) {
       var tile;
       if (!lastTile) {  //没有前一个地块,表示第一个地块
-        tile = new Parkour.Tile(this, 0, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
+        tile = new Parkour.Tile(this, 0, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Utils.random(this.options.assets.tiles[0].middle));
       } else {
         var tileLocation = lastTile.location + tileWidth;
         if (tileLocation < this.options.size.container.width) {  //第一屏的地块
-          tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Units.random(this.options.assets.tiles[0].middle));
+          tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Utils.random(this.options.assets.tiles[0].middle));
         } else {
           if (lastTile.empty) { //前一个地块时空地块(悬崖)
             var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
-            tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Units.random(this.options.assets.tiles[tileIndex].left));
+            tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Utils.random(this.options.assets.tiles[tileIndex].left));
           } else {
             switch(lastTile.type) {
               case 'middle':
                 if (Math.random() < 0.2) {
-                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'right', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].right));
+                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'right', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].right));
                 } else {
-                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].middle));
+                  tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].middle));
                 }
                 break;
               case 'left':
-                tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Units.random(this.options.assets.tiles[lastTile.index].middle));
+                tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].middle));
                 break;
               case 'right':
                 tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height });
@@ -355,9 +399,39 @@ Parkour.prototype = {
       this.tiles.push(tile);
       lastTile = tile;
     }
+    Parkour.Utils.remove(this.tiles, function(tile) {
+      return tile.destory();
+    });
+  },
+  checkAwards: function() {
+    if (!this.awards) this.awards = [];
+    var lastAward = this.awards[this.awards.length - 1];
+    var award;
+    if (!lastAward || (lastAward.location + lastAward.size.width / 2 < this.camera + this.size.width && Math.random() < 0.005)) {
+      var lastTile = this.tiles[this.tiles.length - 1];
+      var tileWidth = this.options.size.tile.width;
+      var awardIndex = Math.floor(this.options.size.awards.length * Math.random());
+      var size = this.options.size.awards[awardIndex];
+      if (lastTile.empty) {
+        var lastNotEmptyTile = Parkour.Utils.last(this.tiles, function(tile) { return !tile.empty; });
+        award = new Parkour.Award(this, lastTile.location + size.width / 2 + Math.floor((tileWidth - size.width) * Math.random()), lastNotEmptyTile.size.height + Math.floor(this.protagonist.maxHigh() * Math.random()), this.options.config.awards[awardIndex], size, this.options.assets.awards[awardIndex]);
+      } else {
+        award = new Parkour.Award(this, lastTile.location + size.width / 2 + Math.floor((tileWidth - size.width) * Math.random()), lastTile.size.height + Math.floor(this.protagonist.maxHigh() * Math.random()), this.options.config.awards[awardIndex], size, this.options.assets.awards[awardIndex]);
+      }
+    }
+    if (award) {
+      this.awards.push(award);
+    }
+    Parkour.Utils.remove(this.awards, function(award) {
+      return award.destory();
+    });
   },
   checkBackgrounds: function() {
     if (!this.backgrounds) this.backgrounds = [];
+  },
+  addScore: function(score) {
+    this.score += score;
+    this.onScoreChange && this.onScoreChange(this.score, this.options.config.win.score);
   }
 }
 
@@ -383,7 +457,7 @@ Parkour.Protagonist = function(parkour, tile, config, size, assets) {
 
   this.location = this.config.run.start;  //主角当前的位置
   this.high = tile.size.height; //主角高度=地块的高度
-  this.speed = this.config.run.speed; //主角的移动速度(撞墙后停止)
+  this.speed = this.config.run.speed(0, 0); //主角的移动速度(撞墙后停止)
   
   this.els = this.initElement();
 }
@@ -425,7 +499,22 @@ Parkour.Protagonist.prototype = {
       jumping: jumping
     };
   },
+  /**
+   * 最高跳跃高度
+   * 根据能量守恒定律,动能做功=重力势能做功
+   *    1
+   * ∵ — m v² = m g h
+   *    2
+   * =>
+   *         v²
+   * ∴ h = ———
+   *        2 g
+   */
+  maxHigh: function() {
+    return this.config.jump.power * this.config.jump.power / 2 / this.config.jump.gravity;
+  },
   tick: function() {
+    this.speed = this.config.run.speed(this.parkour.score, +Date.now() - this.parkour.begin);
     switch (this.status) {
       case 'READY':
         this.frame = 0;
@@ -438,14 +527,14 @@ Parkour.Protagonist.prototype = {
         this.location += this.speed;
         this.frame++;
         //位移 = 初速度 * 时间 + 1/2 * 加速度 * 时间^2    (S=vt+1/2at²)
-        //          1
+        //           1
         // S = v t + — a t²
-        //          2
-        this.high = this.jumpHigh + (this.jumpPower / this.parkour.options.config.fps * this.frame + (-this.config.jump.gravity / this.parkour.options.config.fps) * this.frame * this.frame / 2);
+        //           2
+        this.high = this.jumpHigh + (this.jumpPower * this.frame + -this.config.jump.gravity * this.frame * this.frame / 2);
         break;
       case 'DEADING':
         this.frame++;
-        this.high = this.jumpHigh + (this.jumpPower / this.parkour.options.config.fps * this.frame + (-this.config.jump.gravity / this.parkour.options.config.fps) * this.frame * this.frame / 2);
+        this.high = this.jumpHigh + (this.jumpPower * this.frame + -this.config.jump.gravity * this.frame * this.frame / 2);
         break;
     }
   },
@@ -499,7 +588,15 @@ Parkour.Protagonist.prototype = {
             }
           }
         }
+        break;
     }
+  },
+  checkAward: function(award) {
+    return this.location + this.size.width / 2 > award.location - award.size.width / 2 && this.location - this.size.width / 2 < award.location + award.size.width / 2 &&
+      this.high + this.size.height > award.high && this.high < award.high + award.size.height;
+  },
+  dead: function() {
+    return this.high < -this.size.height;
   },
   run: function() {
     this.status = 'RUNNING';
@@ -558,7 +655,7 @@ Parkour.Tile.prototype = {
     }
   },
   destory: function() {
-    if (this.location + this.size.width + this.parkour.camera) {
+    if (this.location + this.size.width < this.parkour.camera) {
       if (!this.empty) {
         this.parkour.container.removeChild(this.el);
       }
@@ -582,5 +679,48 @@ Parkour.Background.prototype = {
   },
   draw: function() {
 
+  }
+}
+
+Parkour.Award = function(parkour, location, high, config, size, assets) {
+  this.parkour = parkour;
+  this.location = location;
+  this.high = high;
+  this.config = config;
+  this.size = size;
+  this.assets = assets;
+
+  this.status = 'HOLD';
+
+  this.el = this.initElement();
+}
+
+Parkour.Award.prototype = {
+  initElement: function() {
+    var element = this.assets.normal.cloneNode();
+    element.style.position = 'absolute';
+    element.style.width = this.size.width + 'px';
+    element.style.height = this.size.height + 'px';
+    this.parkour.container.appendChild(element);
+    return element;
+  },
+  tick: function() {
+
+  },
+  draw: function() {
+    this.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
+    this.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+  },
+  get: function() {
+    this.status = 'GOT';
+    this.parkour.addScore(this.config.score);
+  },
+  destory: function() {
+    if (this.location + this.size.width / 2 < this.parkour.camera || this.status === 'GOT') {
+      this.parkour.container.removeChild(this.el);
+      return true;
+    } else {
+      return false;
+    }
   }
 }
