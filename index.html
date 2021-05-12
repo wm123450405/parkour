@@ -225,8 +225,8 @@
           ],
           tiles: {
             empty: {
-              min: score => Math.min(4, 1 + Math.floor(score / 25)),     //悬崖最小的大小
-              max: score => Math.max(2, 4 - Math.floor(score / 20))      //悬崖最大的大小
+              min: score => Math.min(3, 1 + Math.floor(score / 25)),     //悬崖最小的大小
+              max: score => Math.min(4, 2 + Math.floor(score / 20))      //悬崖最大的大小
             },
             land: {
               min: 1,     //陆地最小大小,不含左右地块,只计算中间地块
