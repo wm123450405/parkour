@@ -196,7 +196,7 @@
           ]
         },
         config: {
-          fps: 25,              //帧率
+          fps: (score) => Math.min(40, 15 + Math.floor(score / 5)),              //帧率
           protagonist: {        //主角配置
             run: {              //奔跑配置
               start: 100,       //开始位置
@@ -225,12 +225,12 @@
           ],
           tiles: {
             empty: {
-              min: 1,     //悬崖最小的大小
+              min: Math.min(4, 1 + Math.floor(score / 25)),     //悬崖最小的大小
               max: 4      //悬崖最大的大小
             },
             land: {
               min: 1,     //陆地最小大小,不含左右地块,只计算中间地块
-              max: 10     //陆地最大大小,不含左右地块,只计算中间地块
+              max: Math.max(4, 10 + Math.floor(score / 25))     //陆地最大大小,不含左右地块,只计算中间地块
             }
           },
           win: {                //胜利条件
