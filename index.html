@@ -8,6 +8,8 @@
   <script src="parkour.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.1/dist/av-min.js"></script>
   <script>
+    var savedUser = localStorage.getItem('user');
+
     AV.init({
       appId: "Mp8cpIMsHcuDLR8RCsroqlII-9Nh9j0Va",
       appKey: "zXBASj13JavcETYw5triHTJb",
@@ -16,7 +18,7 @@
 
     function saveScore(score) {
       if (score > 0) {
-        var user = localStorage.getItem('user');
+        var user = localStorage.getItem('user') || savedUser;
         if (!user) {
           user = '';
           for (var i = 0; i < 10; i++) {
@@ -32,6 +34,7 @@
           data.save().then(function(data) {
             refresh();
           });
+          savedUser = user;
           localStorage.setItem('user', user);
         } else {
           refresh();
