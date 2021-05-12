@@ -257,7 +257,7 @@
 
     window.onload = function() {
       initParkour();
-      document.getElementById('parkour').onclick = function() {
+      document.body.onclick = function() {
         if (parkour.isPlaying()) {
           parkour.jump();
         } else if (parkour.isInited()) {
@@ -268,7 +268,7 @@
     }
   </script>
 </head>
-<body>
+<body onselect="return false" onselectstart="return false" style="user-select: none;">
   <div id="parkour">
     
   </div>
