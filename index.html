@@ -196,7 +196,7 @@
           ]
         },
         config: {
-          fps: score => Math.min(40, 20 + Math.floor(score / 5)),              //帧率
+          fps: score => Math.min(60, 25 + Math.floor(score / 5)),              //帧率
           protagonist: {        //主角配置
             run: {              //奔跑配置
               start: 100,       //开始位置
@@ -204,7 +204,8 @@
             },
             jump: {             //跳跃配置
               power: 8,         //跳跃力度(px/f)
-              gravity: 0.4      //重力加速度(px/f²)
+              gravity: 0.4,     //重力加速度(px/f²)
+              count: 1          //弹跳次数(可支持多段跳)
             }
           },
           awards: [             //奖品配置

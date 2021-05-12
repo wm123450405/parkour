@@ -754,6 +754,7 @@ Parkour.Protagonist.prototype = {
           this.frame = 0;
           this.jumpHigh = this.high;  //记录起跳位置
           this.jumpPower = 0; //起跳力度
+          this.jumpCount = 1;
         }
         break;
       case 'JUMPING':
@@ -771,6 +772,7 @@ Parkour.Protagonist.prototype = {
                 this.jumpHigh = this.high;  //记录起跳位置
                 this.jumpPower = 0; //起跳力度
               }
+              this.jumpCount = this.config.jump.count;
             } else {
               this.status = 'RUNNING';
               this.high = this.right.size.height;
@@ -804,6 +806,14 @@ Parkour.Protagonist.prototype = {
       this.frame = 0;
       this.jumpHigh = this.high;  //记录起跳位置
       this.jumpPower = this.config.jump.power; //起跳力度
+      this.jumpCount = 1;
+    } else if (this.status === 'JUMPING') {
+      if (this.jumpCount < this.config.jump.count) {
+        this.frame = 0;
+        this.jumpHigh = this.high;  //记录起跳位置
+        this.jumpPower = this.config.jump.power; //起跳力度
+        this.jumpCount++;
+      }
     }
   }
 }
