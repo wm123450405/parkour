@@ -175,6 +175,12 @@ var Parkour = function(container, options) {
     }
     if (!assets.awards || !assets.awards.length) throw '必须配置奖品图片'
     for (var i = 0; i < assets.awards.length; i++) assets.awards[i].normal = initImage(assets.awards[i].normal);
+    if (!assets.flags || !assets.flags.length) throw '必须配置奖品图片'
+    for (var i = 0; i < assets.flags.length; i++) {
+      var flag = assets.flags[i];
+      if (!flag.length) throw '必须标记图片';
+      for (var j = 0; j < flag.length; j++) flag[j] = initImage(flag[j]);
+    }
   }
 
   function initConfig(config) {
@@ -215,6 +221,14 @@ var Parkour = function(container, options) {
   this.checkBackgrounds();
   
   // this.resize(this.options.container.clientWidth, this.options.container.clientHeight);
+}
+
+Parkour.ZIndex = {
+  background: 0,
+  tile: 1,
+  flag: 2,
+  award: 3,
+  protagonist: 4
 }
 
 Parkour.Utils = {
@@ -267,6 +281,35 @@ Parkour.Utils = {
         i--;
       }
     }
+  },
+  /**
+   * 从数组中筛选符合条件的元素,组成新的数组
+   * @param {Array} array 
+   * @param {Function} provider 
+   * @returns 
+   */
+  filter: function(array, provider) {
+    var result = [];
+    for (var i = 0; i < array.length; i++) {
+      if (provider(array[i])) {
+        result.push(array[i])
+      }
+    }
+    return result;
+  },
+  /**
+   * 判断一个数组中是否包含符合条件的元素
+   * @param {Array} array 
+   * @param {Function} provider 
+   * @returns 
+   */
+  contains: function(array, provider) {
+    for (var i = 0; i < array.length; i++) {
+      if (provider(array[i])) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
@@ -392,20 +435,57 @@ Parkour.prototype = {
     var tileWidth = this.options.size.tile.width;
     while(!this.tiles.length || lastTile.location < this.camera + this.options.size.container.width) {
       var tile;
+      var tileLocation;
+      var needFlag; //当前地块必须要添加标记
       if (!lastTile) {  //没有前一个地块,表示第一个地块
-        tile = new Parkour.Tile(this, 0, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Utils.random(this.options.assets.tiles[0].middle));
+        tileLocation = 0;
+        needFlag = this.checkFlags(tileLocation, tileWidth, 1); //当前地块必须要添加标记
+        tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Utils.random(this.options.assets.tiles[0].middle));
       } else {
-        var tileLocation = lastTile.location + tileWidth;
+        tileLocation = lastTile.location + tileWidth;
+        needFlag = this.checkFlags(tileLocation, tileWidth, 1); //当前地块必须要添加标记
         if (tileLocation < this.options.size.container.width) {  //第一屏的地块
           tile = new Parkour.Tile(this, tileLocation, 0, 'middle', { width: tileWidth, height: this.options.size.tiles[0].height }, Parkour.Utils.random(this.options.assets.tiles[0].middle));
         } else {
+          var hasFlag2 = this.checkFlags(tileLocation, tileWidth, 2); //当前地块与后一个地块中至少有一个需要添加标记
+          var hasFlag3 = this.checkFlags(tileLocation, tileWidth, 3); //当前地块与后两个地块中至少有一个需要添加标记
           if (lastTile.empty) { //前一个地块时空地块(悬崖)
-            var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
-            tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Utils.random(this.options.assets.tiles[tileIndex].left));
+            var needLeft;
+            if (hasFlag2) { //后面地块需要添加标记,必须是陆地,所以接下来要添加在地块;
+              needLeft = true;
+            } else {
+              var emptyCount = Parkour.Utils.lastCount(this.tiles, function(tile) { return tile.empty });  //获取已有连续空地块的数量
+              if (emptyCount < this.options.config.tiles.empty.min) {  //如果空地块数量小于配置的最低要求则依然是空地块
+                needLeft = false;
+              } else if (emptyCount >= this.options.config.tiles.empty.max) {  //如果空地块数量达到最高要求,则需要加入左侧地块
+                needLeft = true;
+              } else {  //否则随机空地块或左侧地块
+                needLeft = Math.random() < 0.5;
+              }
+            }
+            if (needLeft) {
+              var tileIndex = Math.floor(this.options.size.tiles.length * Math.random());
+              tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Utils.random(this.options.assets.tiles[tileIndex].left));
+            } else {
+              tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: 0 });
+            }
           } else {
             switch(lastTile.type) {
               case 'middle':
-                if (Math.random() < 0.2) {
+                var needRight;
+                if (hasFlag3) { //如果当前地块或接下来两个地块中必须添加标记,则不能创建右侧地块
+                  needRight = false;
+                } else {
+                  var landCount = Parkour.Utils.lastCount(this.tiles, function(tile) { return tile.type === 'middle' }); //获取已有连续的陆地的地块数量(类型为middle的表示陆地)
+                  if (landCount < this.options.config.tiles.land.min) {
+                    needRight = false;
+                  } else if (landCount >= this.options.config.tiles.land.max) {
+                    needRight = true;
+                  } else {
+                    needRight = Math.random() < 0.2;
+                  }
+                }
+                if (needRight) {
                   tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'right', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].right));
                 } else {
                   tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].middle));
@@ -415,9 +495,23 @@ Parkour.prototype = {
                 tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].middle));
                 break;
               case 'right':
-                tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height });
+                tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: 0 });
                 break;
             }
+          }
+        }
+      }
+      if (needFlag) {
+        for (var i = 0; i < this.options.config.flags.length; i++) {
+          if (this.checkFlag(this.options.config.flags[i], tileLocation, tileWidth, 1)) { //这是一个必须要添加的地块
+            tile.addFlag(this.options.config.flags[i], this.options.size.flags[i], this.options.assets.flags[i]);
+          }
+        }
+      } else if (tile.type === 'middle') {
+        for (var i = 0; i < this.options.config.flags.length; i++) {
+          var flagConfig = this.options.config.flags[i];
+          if (typeof flagConfig.probability !== 'undefined' && Math.random() < flagConfig.probability) { //随机是否添加地块
+            tile.addFlag(flagConfig, this.options.size.flags[i], this.options.assets.flags[i]);
           }
         }
       }
@@ -427,6 +521,18 @@ Parkour.prototype = {
     Parkour.Utils.remove(this.tiles, function(tile) {
       return tile.destory();
     });
+  },
+  /**
+   * 检查当前地块或后几个地块是否一定包含一个标记,如果包含标记,则只能创建middle类型的地块
+   */
+  checkFlags: function(location, tileWidth, count) {
+    var _this = this;
+    return Parkour.Utils.contains(this.options.config.flags, function(flag) {
+      return _this.checkFlag(flag, location, tileWidth, count);
+    })
+  },
+  checkFlag: function(flag, location, tileWidth, count) {
+    return typeof flag.location !== 'undefined' && flag.location >= location && flag.location < location + tileWidth * count;
   },
   /**
    * 检查奖品,右侧无奖品时随机产生奖品,左侧奖品超出屏幕时或奖品被获得后移除
@@ -480,15 +586,15 @@ Parkour.prototype = {
  */
 Parkour.Protagonist = function(parkour, tile, config, size, assets) {
   this.parkour = parkour;
-  this.tile = this.right = this.left = tile;
+  this.tile = tile;  //主角当前所处的地块
+  this.right = tile; //主角右侧所处的地块
+  this.left = tile;  //主角左侧所处的地块
   this.config = config;
   this.size = size;
   this.assets = assets;
 
-  this.frame = 0;
-  this.status = 'READY';
-
-  this.container = this.container;
+  this.frame = 0; //在任一种状态下播放的帧数
+  this.status = 'READY'; //状态:READY:初始状态,RUNNING:奔跑状态,JUMPING:跳跃状态,DEADING:坠落状态
 
   this.location = this.config.run.start;  //主角当前的位置
   this.high = tile.size.height; //主角高度=地块的高度
@@ -526,6 +632,7 @@ Parkour.Protagonist.prototype = {
     protagonist.style.position = 'absolute';
     protagonist.style.width = this.size.width + 'px';
     protagonist.style.height = this.size.height + 'px';
+    protagonist.style.zIndex = Parkour.ZIndex.protagonist;
     this.parkour.container.appendChild(protagonist);
     return {
       el: protagonist,
@@ -604,7 +711,7 @@ Parkour.Protagonist.prototype = {
   check: function() {
     switch (this.status) {
       case 'RUNNING':
-        if (this.left.empty) {
+        if (this.left.empty) {  //检查左侧是否再地面上,如果左侧离开了地面并且处于奔跑状态则切换到跳跃状态
           this.status = 'JUMPING';
           this.frame = 0;
           this.jumpHigh = this.high;  //记录起跳位置
@@ -612,9 +719,12 @@ Parkour.Protagonist.prototype = {
         }
         break;
       case 'JUMPING':
-        if (!this.right.empty) {
+        if (!this.right.empty) { //先看右侧是否落地
           if (this.right.size.height >= this.high) { //低于地面了
-            if (this.right.type === 'left' && this.right.location >= this.location + this.size.width / 2 - this.speed && this.right.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps) {
+            if (this.right.type === 'left' && //右脚踏入一个左侧地块
+              this.right.location >= this.location + this.size.width / 2 - this.speed && //并且是刚刚踏入
+              this.right.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps  //为踏入地上,而是碰到地面的墙壁
+            ) {
               this.status = 'DEADING';
             } else {
               this.status = 'RUNNING';
@@ -622,13 +732,11 @@ Parkour.Protagonist.prototype = {
               this.frame = 0;
             }
           }
-        } else if (!this.left.empty) {
-          if (this.left.size.height >= this.high) { //低于地面了
-            
-              this.status = 'RUNNING';
-              this.high = this.right.size.height;
-              this.frame = 0;
-            
+        } else if (!this.left.empty) { //再检查左侧是否落地
+          if (this.left.size.height >= this.high) { //低于地面了表示已落地
+            this.status = 'RUNNING';
+            this.high = this.left.size.height;
+            this.frame = 0;
           }
         }
 
@@ -672,6 +780,8 @@ Parkour.Tile = function(parkour, location, index, type, size, assets) {
   this.type = type;
   this.assets = assets;
 
+  this.flags = [];
+
   if (this.assets) {
     this.empty = false;
     this.el = this.initElement();
@@ -686,16 +796,22 @@ Parkour.Tile.prototype = {
     element.style.position = 'absolute';
     element.style.width = this.size.width + 'px';
     element.style.height = this.size.height + 'px';
+    element.style.zIndex = Parkour.ZIndex.tile;
     this.parkour.container.appendChild(element);
     return element;
   },
   tick: function() {
-    
+    for (var i = 0; i < this.flags.length; i++) {
+      this.flags[i].tick();
+    }
   },
   draw: function() {
     if (!this.empty) {
       this.el.style.top = (this.parkour.size.height - this.size.height) + 'px';
       this.el.style.left = (this.location - this.parkour.camera) + 'px';
+    }
+    for (var i = 0; i < this.flags.length; i++) {
+      this.flags[i].draw();
     }
   },
   destory: function() {
@@ -707,6 +823,63 @@ Parkour.Tile.prototype = {
     } else {
       return false;
     }
+  },
+  addFlag: function(config, size, assets) {
+    this.flags.push(new Parkour.Flag(this.parkour, this, config, size, assets));
+  }
+}
+
+Parkour.Flag = function(parkour, tile, config, size, assets) {
+  this.parkour = parkour;
+  this.tile = tile;
+  this.config = config;
+  this.size = size;
+  this.assets = assets;
+
+  this.frame = 0;
+  this.location = typeof config.location === 'undefined' ? tile.location + tile.size.width / 2 : config.location;  //如果未配置位置则设置地块的中间作为出现位置, 否则使用设置的位置作为出现位置
+  this.high = tile.size.height; //地块的高度作为标记出现的位置
+
+  this.els = this.initElement();
+}
+
+Parkour.Flag.prototype = {
+  initElement() {
+    var flag = document.createElement('div');
+
+    var frames = [];
+    for (var i = 0; i < this.assets.length; i++) {
+      var frame = this.assets[i].cloneNode();
+      frame.style.width = this.size.width + 'px';
+      frame.style.height = this.size.height + 'px';
+      frame.style.display = 'none';
+      flag.appendChild(frame);
+      frames.push(frame);
+    }
+
+    flag.style.position = 'absolute';
+    flag.style.width = this.size.width + 'px';
+    flag.style.height = this.size.height + 'px';
+    flag.style.zIndex = Parkour.ZIndex.flag;
+    this.parkour.container.appendChild(flag);
+    return {
+      el: flag,
+      frames: frames
+    };
+  },
+  tick() {
+    this.frame = (this.frame + 1) % this.assets.length;
+  },
+  clear() {
+    for (var i = 0; i < this.els.frames.length; i++) {
+      this.els.frames[i].style.display = 'none';
+    }
+  },
+  draw() {
+    this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+    this.els.el.style.left = (this.location - this.size.width / 2 - this.parkour.camera) + 'px';
+    this.clear();
+    this.els.frames[this.frame].style.display = 'block';
   }
 }
 
@@ -745,6 +918,7 @@ Parkour.Award.prototype = {
     element.style.position = 'absolute';
     element.style.width = this.size.width + 'px';
     element.style.height = this.size.height + 'px';
+    element.style.zIndex = Parkour.ZIndex.award;
     this.parkour.container.appendChild(element);
     return element;
   },

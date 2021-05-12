@@ -42,6 +42,20 @@
               height: 72
             }
           ],
+          flags: [
+            {
+              width: 16,
+              height: 32
+            },
+            {
+              width: 16,
+              height: 16
+            },
+            {
+              width: 16,
+              height: 32
+            }
+          ]
         },
         assets: {               //各资源的配置
           protagonist: {        //主角资源配置
@@ -95,6 +109,11 @@
             {
               normal: 'images/award-1.png' //正常状态下的奖品图片
             }
+          ],
+          flags: [
+            ['images/flag-1.png'],
+            ['images/flag-2.png'],
+            ['images/flag-3.png']
           ]
         },
         config: {
@@ -102,7 +121,7 @@
           protagonist: {        //主角配置
             run: {              //奔跑配置
               start: 100,       //开始位置
-              speed: 4          //奔跑速度(可以接受方法,根据当前的得分和已用时长跳转速度,function(score,time))
+              speed: 4          //奔跑速度(可以接受方法作为参数,根据当前的得分和已用时长跳转速度,(score:number,time:number)=>number)
             },
             jump: {             //跳跃配置
               power: 8,         //跳跃力度(px/f)
@@ -114,6 +133,27 @@
               score: 1          //奖品获得的积分配置
             }
           ],
+          flags: [
+            {
+              probability: 0.1         //随机出现,概率
+            },
+            {
+              probability: 0.1         //随机出现,概率
+            },
+            {
+              location: 300     //固定位置出现(可以接受方法作为参数,方法返回是否出现,(startLocation:number,endLocation:number)=>boolean)
+            }
+          ],
+          tiles: {
+            empty: {
+              min: 1,     //悬崖最小的大小
+              max: 2      //悬崖最大的大小
+            },
+            land: {
+              min: 1,     //陆地最小大小,不含左右地块,只计算中间地块
+              max: 10     //陆地最大大小,不含左右地块,只计算中间地块
+            }
+          },
           win: {                //胜利条件
             time: Infinity,     //到达指定时间获胜
             score: 5     //获得指定积分获胜
