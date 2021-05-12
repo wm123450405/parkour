@@ -728,6 +728,13 @@ Parkour.Protagonist.prototype = {
               this.right.size.height - this.high > this.config.jump.power / this.parkour.options.config.fps  //为踏入地上,而是碰到地面的墙壁
             ) {
               this.status = 'DEADING';
+              var nextFrame = this.frame + 1;
+              var nextHigh = this.jumpHigh + (this.jumpPower * nextFrame + -this.config.jump.gravity * nextFrame * nextFrame / 2);
+              if (nextHigh > this.high) { //如果是上升中,直接下落
+                this.frame = 0;
+                this.jumpHigh = this.high;  //记录起跳位置
+                this.jumpPower = 0; //起跳力度
+              }
             } else {
               this.status = 'RUNNING';
               this.high = this.right.size.height;
@@ -956,3 +963,44 @@ Parkour.Award.prototype = {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function sum(a, b) {
+  var result = a + b;
+  return result;
+}
+
+var sum1 = sum(1, 2);
+var sum2 = sum(2, 3);
+console.log(sum1, sum2);
