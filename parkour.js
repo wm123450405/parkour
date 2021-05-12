@@ -630,6 +630,7 @@ Parkour.Protagonist.prototype = {
     protagonist.appendChild(jumping);
 
     protagonist.style.position = 'absolute';
+    protagonist.style.display = 'none';
     protagonist.style.width = this.size.width + 'px';
     protagonist.style.height = this.size.height + 'px';
     protagonist.style.zIndex = Parkour.ZIndex.protagonist;
@@ -690,6 +691,7 @@ Parkour.Protagonist.prototype = {
   draw: function() {
     this.clear();
     
+    this.els.el.style.display = 'block';
     this.els.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
     this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
 
@@ -794,6 +796,7 @@ Parkour.Tile.prototype = {
   initElement: function() {
     var element = this.assets.cloneNode();
     element.style.position = 'absolute';
+    element.style.display = 'none';
     element.style.width = this.size.width + 'px';
     element.style.height = this.size.height + 'px';
     element.style.zIndex = Parkour.ZIndex.tile;
@@ -807,6 +810,7 @@ Parkour.Tile.prototype = {
   },
   draw: function() {
     if (!this.empty) {
+      this.el.style.display = 'block';
       this.el.style.top = (this.parkour.size.height - this.size.height) + 'px';
       this.el.style.left = (this.location - this.parkour.camera) + 'px';
     }
@@ -858,6 +862,7 @@ Parkour.Flag.prototype = {
     }
 
     flag.style.position = 'absolute';
+    flag.style.display = 'none';
     flag.style.width = this.size.width + 'px';
     flag.style.height = this.size.height + 'px';
     flag.style.zIndex = Parkour.ZIndex.flag;
@@ -876,6 +881,7 @@ Parkour.Flag.prototype = {
     }
   },
   draw() {
+    this.els.el.style.display = 'block';
     this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
     this.els.el.style.left = (this.location - this.size.width / 2 - this.parkour.camera) + 'px';
     this.clear();
@@ -919,6 +925,7 @@ Parkour.Award.prototype = {
     element.style.width = this.size.width + 'px';
     element.style.height = this.size.height + 'px';
     element.style.zIndex = Parkour.ZIndex.award;
+    element.style.display = 'none';
     this.parkour.container.appendChild(element);
     return element;
   },
@@ -926,6 +933,7 @@ Parkour.Award.prototype = {
 
   },
   draw: function() {
+    this.el.style.display = 'block';
     this.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
     this.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
   },
