@@ -6,6 +6,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <script src="parkour.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.1/dist/av-min.js"></script>
+  <script>
+    AV.init({
+      appId: "Mp8cpIMsHcuDLR8RCsroqlII-9Nh9j0Va",
+      appKey: "zXBASj13JavcETYw5triHTJb",
+      serverURL: "https://mp8cpims.lc-cn-e1-shared.com"
+    });
+
+    function saveScore(score) {
+      if (score > 0) {
+        var user = localStorage.getItem('user');
+        if (!user) {
+          user = '';
+          for (var i = 0; i < 10; i++) {
+            user += String.fromCharCode(Math.floor(Math.random() * 26) + 'a'.charCodeAt(0));
+          }
+          user = prompt("恭喜你获得" + score + "分,请输入用户名上传结果", user);
+        }
+        if (user) {
+          localStorage.setItem('user', user);
+          var Score = AV.Object.extend('Score');
+          var data = new Score();
+          data.set('score', score);
+          data.set('user', user);
+          data.save().then(function(data) {
+            refresh();
+          });
+        }
+      }
+    }
+
+    function load(result, excludes, callback) {
+      var query = new AV.Query('Score');
+      if (excludes.length) {
+        query.notContainedIn('user', excludes);
+      }
+      query.addDescending('score');
+      query.addAscending('createdAt');
+      query.first().then(data => {
+        if (data) {
+          var user = data.get('user');
+          result.push({
+            score: data.get('score'),
+            user: user
+          });
+          if (result.length >= 50) {
+            callback && callback(result);
+          } else {
+            excludes.push(user);
+            load(result, excludes, callback);
+          }
+        } else {
+          callback && callback(result);
+        }
+      })
+    }
+
+    function refresh() {
+      load([], [], function(result) {
+        var rank = document.getElementById('rank');
+        rank.innerHTML = '';
+        for (var i = 0; i < result.length; i++) {
+          rank.innerHTML += '<div>' + result[i].user + ':' + result[i].score + '</div>';
+        }
+      })
+    }
+  </script>
   <script>
     var parkour;
     function initParkour() {
@@ -163,7 +230,7 @@
           },
           win: {                //胜利条件
             time: Infinity,     //到达指定时间获胜
-            score: 50     //获得指定积分获胜
+            score: Infinity     //获得指定积分获胜
           },
           background: {
             speed: 1           //背景卷动的速度
@@ -174,14 +241,16 @@
         
       }
       parkour.onScoreChange = function(score, max) {
-        document.getElementById('score').innerHTML = score + '/' + max;
+        document.getElementById('score').innerHTML = score;
       }
       parkour.onWin = function() {
         alert('获胜');
+        saveScore(parkour.score);
         initParkour();
       }
       parkour.onLose = function() {
         alert('游戏结束');
+        saveScore(parkour.score);
         initParkour();
       }
     }
@@ -195,6 +264,7 @@
           parkour.start();
         }
       }
+      refresh();
     }
   </script>
 </head>
@@ -202,6 +272,7 @@
   <div id="parkour">
     
   </div>
-  <div id="score"></div>
+  <div id="score">0</div>
+  <div id="rank"></div>
 </body>
 </html>
