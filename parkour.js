@@ -823,6 +823,9 @@ Parkour.Tile.prototype = {
       if (!this.empty) {
         this.parkour.container.removeChild(this.el);
       }
+      for (var i = 0; i < this.flags.length; i++) {
+        this.flags[i].destory();
+      }
       return true;
     } else {
       return false;
@@ -886,6 +889,9 @@ Parkour.Flag.prototype = {
     this.els.el.style.left = (this.location - this.size.width / 2 - this.parkour.camera) + 'px';
     this.clear();
     this.els.frames[this.frame].style.display = 'block';
+  },
+  destory: function() {
+    this.parkour.container.removeChild(this.els.el);
   }
 }
 
