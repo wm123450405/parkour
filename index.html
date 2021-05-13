@@ -5,6 +5,41 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
+  <style>
+    * { padding: 0; margin: 0; }
+
+    html {
+      height: 100%;
+    }
+    body {
+      min-height: 100%;
+    }
+
+    .rank {
+      display: flex;
+      flex-direction: column;
+      padding: 15px;
+    }
+    .rank-item {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      padding: 5px 0;
+    }
+    .rank-name {
+      flex: none;
+    }
+    .rank-line {
+      flex: 1;
+      height: 0;
+      overflow: hidden;
+      border-top: 1px dashed #000;
+      margin: 0 10px;
+    }
+    .rank-score {
+      flex: none;
+    }
+  </style>
   <script src="parkour.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.1/dist/av-min.js"></script>
   <script>
@@ -73,7 +108,7 @@
         var rank = document.getElementById('rank');
         rank.innerHTML = '';
         for (var i = 0; i < result.length; i++) {
-          rank.innerHTML += '<div>' + result[i].user + ':' + result[i].score + '</div>';
+          rank.innerHTML += '<div class="rank-item"><span class="rank-name">' + result[i].user + '</span><span class="rank-line">&nbsp;</span><span class="rank-score">' + result[i].score + '</span></div>';
         }
       })
     }
@@ -324,11 +359,13 @@
   </script>
 </head>
 <body onselect="return false" onselectstart="return false" style="user-select: none;">
-  <div id="parkour">
-    
+  <div style="width: 400px;">
+    <div style="position: absolute; z-index: 99; color: #fff; padding: 5px"><img src="images/award-1.png" alt=""> × <span id="score">0</span></div>
+    <div id="parkour">
+      
+    </div>
+    <div style="text-align: center; font-size: 1.2em; font-weight: bold; padding: 8px; border-bottom: 1px solid #666;">排行榜</div>
+    <div id="rank" class="rank"></div>
   </div>
-  <div id="score">0</div>
-  <div>排行榜:</div>
-  <div id="rank"></div>
 </body>
 </html>

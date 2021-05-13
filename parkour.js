@@ -505,7 +505,7 @@ Parkour.prototype = {
               } else if (emptyCount >= this.config.tiles.empty.max) {  //如果空地块数量达到最高要求,则需要加入左侧地块
                 needLeft = true;
               } else {  //否则随机空地块或左侧地块
-                needLeft = Math.random() < 0.5;
+                needLeft = emptyCount >= Math.random() * (this.config.tiles.empty.max - this.config.tiles.empty.min + 1) + this.config.tiles.empty.min;
               }
             }
             if (needLeft) {
@@ -531,7 +531,7 @@ Parkour.prototype = {
                   } else if (landCount >= this.config.tiles.land.max) {
                     needRight = true;
                   } else {
-                    needRight = Math.random() < 0.2;
+                    needRight = landCount >= Math.random() * (this.config.tiles.land.max - this.config.tiles.land.min + 1) + this.config.tiles.land.min;
                   }
                 }
                 if (needRight) {
