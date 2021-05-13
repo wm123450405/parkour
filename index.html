@@ -25,9 +25,13 @@
       width: 100%;
       align-items: center;
       padding: 5px 0;
+      font-size: 1.5em;
     }
     .rank-name {
       flex: none;
+    }
+    .rank-time {
+      font-size: 0.2em;
     }
     .rank-line {
       flex: 1;
@@ -44,6 +48,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.1/dist/av-min.js"></script>
   <script>
     var savedUser = localStorage.getItem('user');
+    var ranks = [];
 
     AV.init({
       appId: "Mp8cpIMsHcuDLR8RCsroqlII-9Nh9j0Va",
@@ -67,7 +72,9 @@
           data.set('score', score);
           data.set('user', user);
           data.save().then(function(data) {
-            refresh();
+            if (!ranks.length || score > ranks[ranks.length - 1].score) {
+              refresh();
+            }
           });
           savedUser = user;
           localStorage.setItem('user', user);
@@ -77,39 +84,31 @@
       }
     }
 
-    function load(result, excludes, callback) {
+    function refresh() {
       var query = new AV.Query('Score');
-      if (excludes.length) {
-        query.notContainedIn('user', excludes);
-      }
       query.addDescending('score');
       query.addAscending('createdAt');
-      query.first().then(data => {
-        if (data) {
-          var user = data.get('user');
-          result.push({
-            score: data.get('score'),
-            user: user
-          });
-          if (result.length >= 50) {
-            callback && callback(result);
-          } else {
-            excludes.push(user);
-            load(result, excludes, callback);
+      query.limit(50);
+      query.find().then(list => {
+        for (var i = 0; i < list.length; i++) {
+          list[i] = {
+            user: list[i].get('user'),
+            score: list[i].get('score'),
+            createdAt: list[i].get('createdAt')
           }
-        } else {
-          callback && callback(result);
         }
-      })
-    }
-
-    function refresh() {
-      load([], [], function(result) {
+        // for (var i = 0; i < list.length; i++) {
+        //   if (list.slice(0, i).some(data => data.user === list[i].user)) {
+        //     list.splice(i, 1);
+        //     i--;
+        //   }
+        // }
         var rank = document.getElementById('rank');
         rank.innerHTML = '';
-        for (var i = 0; i < result.length; i++) {
-          rank.innerHTML += '<div class="rank-item"><span class="rank-name">' + result[i].user + '</span><span class="rank-line">&nbsp;</span><span class="rank-score">' + result[i].score + '</span></div>';
+        for (var i = 0; i < list.length; i++) {
+          rank.innerHTML += '<div class="rank-item"><span class="rank-name">' + list[i].user + '<span class="rank-time"> ' + list[i].createdAt.toJSON().replace(/T|Z/ig, ' ').substring(5, 16) + '</span></span><span class="rank-line">&nbsp;</span><span class="rank-score">' + list[i].score + '</span></div>';
         }
+        ranks = list;
       })
     }
   </script>
@@ -364,7 +363,7 @@
     <div id="parkour">
       
     </div>
-    <div style="text-align: center; font-size: 1.2em; font-weight: bold; padding: 8px; border-bottom: 1px solid #666;">排行榜</div>
+    <div style="text-align: center; font-size: 2em; font-weight: bold; padding: 8px; border-bottom: 1px solid #666;">排行榜</div>
     <div id="rank" class="rank"></div>
   </div>
 </body>
