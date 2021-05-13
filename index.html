@@ -170,6 +170,18 @@
             {
               width: 16,
               height: 32
+            },
+            {
+              width: 54,
+              height: 36
+            },
+            {
+              width: 18,
+              height: 18
+            },
+            {
+              width: 54,
+              height: 36
             }
           ]
         },
@@ -276,7 +288,10 @@
               ''
             ],
             ['images/flag-2.png'],
-            ['images/flag-3.png']
+            ['images/flag-3.png'],
+            ['images/flag-4.png'],
+            ['images/flag-5.png'],
+            ['images/flag-6.png']
           ]
         },
         config: {
@@ -306,6 +321,21 @@
             },
             {
               location: 300     //固定位置出现(可以接受方法作为参数,方法返回是否出现,(startLocation:number,endLocation:number)=>boolean)
+            },
+            {
+              probability: 0.05,
+              speed: 1,
+              float: true,
+            },
+            {
+              probability: 0.01,
+              speed: 3,
+              float: true,
+            },
+            {
+              probability: 0.05,
+              speed: 1,
+              float: true
             }
           ],
           tiles: {
@@ -362,8 +392,8 @@
   </script>
 </head>
 <body onselect="return false" onselectstart="return false" style="user-select: none;">
-  <div style="width: 400px;">
-    <div style="position: absolute; z-index: 99; color: #fff; padding: 5px"><img src="images/award-1.png" alt=""> × <span id="score">0</span></div>
+  <div style="width: 400px; margin: 0 auto;">
+    <div style="position: absolute; z-index: 99; color: #fff; padding: 5px; vertical-align: middle;"><img src="images/award-1.png" alt="" style="vertical-align: middle;"><span style="vertical-align: middle;"> × </span><span id="score" style="vertical-align: middle;">0</span></div>
     <div id="parkour">
       
     </div>

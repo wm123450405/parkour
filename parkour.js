@@ -227,6 +227,8 @@ var Parkour = function(container, options) {
   this.score = 0;
   //相机位置
   this.camera = 0;
+  //浮动标记
+  this.flags = [];
   //config
   this.tickConfig();
 
@@ -406,6 +408,9 @@ Parkour.prototype = {
     for (var i = 0; i < this.backgrounds.length; i++) {
       this.backgrounds[i].tick();
     }
+    for (var i = 0; i < this.flags.length; i++) {
+      this.flags[i].tick();
+    }
   },
   draw: function() {
     this.protagonist.draw();
@@ -419,6 +424,9 @@ Parkour.prototype = {
     }
     for (var i = 0; i < this.backgrounds.length; i++) {
       this.backgrounds[i].draw();
+    }
+    for (var i = 0; i < this.flags.length; i++) {
+      this.flags[i].draw();
     }
   },
   check: function() {
@@ -552,18 +560,26 @@ Parkour.prototype = {
       }
       if (needFlag) {
         for (var i = 0; i < this.options.config.flags.length; i++) {
-          if (this.checkFlag(this.options.config.flags[i], tileLocation, tileWidth, 1)) { //这是一个必须要添加的地块
+          if (this.checkFlag(this.options.config.flags[i], tileLocation, tileWidth, 1)) { //这是一个必须要添加的地块上的标记
             tile.addFlag(this.options.config.flags[i], this.options.size.flags[i], this.options.assets.flags[i]);
           }
         }
       } else if (tile.type === 'middle') {
         for (var i = 0; i < this.options.config.flags.length; i++) {
           var flagConfig = this.options.config.flags[i];
-          if (typeof flagConfig.probability !== 'undefined' && Math.random() < flagConfig.probability) { //随机是否添加地块
+          if (!this.options.config.flags[i].float && typeof flagConfig.probability !== 'undefined' && Math.random() < flagConfig.probability) { //随机是否添加地块上的标记
             tile.addFlag(flagConfig, this.options.size.flags[i], this.options.assets.flags[i]);
           }
         }
       }
+      
+      for (var i = 0; i < this.options.config.flags.length; i++) {
+        var flagConfig = this.options.config.flags[i];
+        if (flagConfig.float && typeof flagConfig.probability !== 'undefined' && Math.random() < flagConfig.probability) {
+          this.flags.push(new Parkour.Flag(this, tile, flagConfig, this.options.size.flags[i], this.options.assets.flags[i]));
+        }
+      }
+
       this.tiles.push(tile);
       lastTile = tile;
     }
@@ -580,8 +596,8 @@ Parkour.prototype = {
       return _this.checkFlag(flag, location, tileWidth, count);
     })
   },
-  checkFlag: function(flag, location, tileWidth, count) {
-    return typeof flag.location !== 'undefined' && flag.location >= location && flag.location < location + tileWidth * count;
+  checkFlag: function(flagConfig, location, tileWidth, count) {
+    return !flagConfig.float && typeof flagConfig.location !== 'undefined' && flagConfig.location >= location && flagConfig.location < location + tileWidth * count;
   },
   /**
    * 检查奖品,右侧无奖品时随机产生奖品,左侧奖品超出屏幕时或奖品被获得后移除
@@ -928,7 +944,7 @@ Parkour.Flag = function(parkour, tile, config, size, assets) {
 
   this.frame = 0;
   this.location = typeof config.location === 'undefined' ? tile.location + tile.size.width / 2 : config.location;  //如果未配置位置则设置地块的中间作为出现位置, 否则使用设置的位置作为出现位置
-  this.high = tile.size.height; //地块的高度作为标记出现的位置
+  this.high = this.config.float ? Math.floor(Math.random() * (this.parkour.size.height - this.size.height)) : tile.size.height; //地块的高度作为标记出现的位置
 
   this.els = this.initElement();
 }
@@ -960,6 +976,9 @@ Parkour.Flag.prototype = {
   },
   tick() {
     this.frame = (this.frame + 1) % this.assets.length;
+    if (this.config.float) {
+      this.location += this.config.speed;
+    }
   },
   clear() {
     for (var i = 0; i < this.els.frames.length; i++) {
