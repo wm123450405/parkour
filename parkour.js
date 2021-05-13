@@ -121,8 +121,9 @@ var Parkour = function(container, options) {
    * 加载图片资源
    * @param {} image 
    */
-  function initImage(image) {
+  function initImage(image, prev) {
     if (typeof image === 'string') {
+      if (image === '') return prev;
       assetsCount++;
       var result = new Image();
       result.onload = function() {
@@ -144,6 +145,16 @@ var Parkour = function(container, options) {
     }
   }
 
+  function initImages(images) {
+    var prev;
+    if (!(images instanceof Array)) images = [images];
+    for (var i = 0; i < images.length; i++) {
+      images[i] = initImage(images[i], prev);
+      prev = images[i];
+    }
+    return images;
+  }
+
   function initSize(size) {
     if (!size) throw '必须配置尺寸';
     if (!size.container) throw '必须配置容器尺寸';
@@ -155,31 +166,31 @@ var Parkour = function(container, options) {
   }
 
   function initAssets(assets) {
-    if (!assets.protagonist.running || !assets.protagonist.running.length) throw '必须配置主角奔跑图片';
-    for (var i = 0; i < assets.protagonist.running.length; i++) assets.protagonist.running[i] = initImage(assets.protagonist.running[i]);
+    if (!assets.protagonist.running) throw '必须配置主角奔跑图片';
+    assets.protagonist.running = initImages(assets.protagonist.running);
     if (!assets.protagonist.jumping) throw '必须配置主角跳跃图片';
     assets.protagonist.jumping = initImage(assets.protagonist.jumping);
     if (!assets.protagonist.staying) throw '必须配置主角跳跃图片';
     assets.protagonist.staying = initImage(assets.protagonist.staying);
-    if (!assets.background || !assets.background.length) throw '必须配置背景图';
-    for (var i = 0; i < assets.background.length; i++) assets.background[i] = initImage(assets.background[i]);
+    if (!assets.backgrounds) throw '必须配置背景图';
+    assets.backgrounds = initImages(assets.backgrounds);
     if (!assets.tiles || !assets.tiles.length) throw '必须配置地块';
     for (var i = 0; i < assets.tiles.length; i++) {
       var tile = assets.tiles[i];
-      if (!tile.left || !tile.left.length) throw '必须配置地块左侧图片';
-      for (var j = 0; j < tile.left.length; j++) tile.left[j] = initImage(tile.left[j]);
-      if (!tile.middle || !tile.middle.length) throw '必须配置地块中间图片';
-      for (var j = 0; j < tile.middle.length; j++) tile.middle[j] = initImage(tile.middle[j]);
-      if (!tile.right || !tile.right.length) throw '必须配置地块右侧图片';
-      for (var j = 0; j < tile.right.length; j++) tile.right[j] = initImage(tile.right[j]);
+      if (!tile.left) throw '必须配置地块左侧图片';
+      tile.left = initImages(tile.left);
+      if (!tile.middle) throw '必须配置地块中间图片';
+      tile.middle = initImages(tile.middle);
+      if (!tile.right) throw '必须配置地块右侧图片';
+      tile.right = initImages(tile.right);
     }
     if (!assets.awards || !assets.awards.length) throw '必须配置奖品图片'
-    for (var i = 0; i < assets.awards.length; i++) assets.awards[i].normal = initImage(assets.awards[i].normal);
+    for (var i = 0; i < assets.awards.length; i++) {
+      assets.awards[i].normal = initImages(assets.awards[i].normal);
+    }
     if (!assets.flags || !assets.flags.length) throw '必须配置奖品图片'
     for (var i = 0; i < assets.flags.length; i++) {
-      var flag = assets.flags[i];
-      if (!flag.length) throw '必须标记图片';
-      for (var j = 0; j < flag.length; j++) flag[j] = initImage(flag[j]);
+      assets.flags[i] = initImages(assets.flags[i]);
     }
   }
 
@@ -193,7 +204,8 @@ var Parkour = function(container, options) {
     if (!config.protagonist.run.start) throw '必须配置主角起跑位置';
     if (!config.protagonist.jump) throw '必须设置主角配置配置';
     if (!config.win) throw '必须设置胜利条件';
-
+    if (!config.background) throw '必须设置背景配置';
+    config.background.speed = Parkour.Utils.asFunction(config.background.speed);
     config.tiles.empty.min = Parkour.Utils.asFunction(config.tiles.empty.min);
     config.tiles.empty.max = Parkour.Utils.asFunction(config.tiles.empty.max);
     config.tiles.land.min = Parkour.Utils.asFunction(config.tiles.land.min);
@@ -228,10 +240,11 @@ var Parkour = function(container, options) {
 
 Parkour.ZIndex = {
   background: 0,
-  tile: 1,
-  flag: 2,
+  flag: 1,
+  tile: 2,
   award: 3,
-  protagonist: 4
+  enemy: 4,
+  protagonist: 5
 }
 
 Parkour.Utils = {
@@ -498,12 +511,12 @@ Parkour.prototype = {
             if (needLeft) {
               var maxHigh = this.protagonist.maxHigh();
               var canTiles = Parkour.Utils.filter(this.options.size.tiles, function(tile) {
-                return tile.height < maxHigh - _this.protagonist.size.height / 2;
+                return tile.height < lastTile.size.height + maxHigh - _this.protagonist.size.height / 2;
               });
               var tileIndex = this.options.size.tiles.indexOf(canTiles[Math.floor(canTiles.length * Math.random())]);
               tile = new Parkour.Tile(this, tileLocation, tileIndex, 'left', { width: tileWidth, height: this.options.size.tiles[tileIndex].height }, Parkour.Utils.random(this.options.assets.tiles[tileIndex].left));
             } else {
-              tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: 0 });
+              tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: lastTile.size.height });
             }
           } else {
             switch(lastTile.type) {
@@ -531,7 +544,7 @@ Parkour.prototype = {
                 tile = new Parkour.Tile(this, tileLocation, lastTile.index, 'middle', { width: tileWidth, height: this.options.size.tiles[lastTile.index].height }, Parkour.Utils.random(this.options.assets.tiles[lastTile.index].middle));
                 break;
               case 'right':
-                tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: 0 });
+                tile = new Parkour.Tile(this, tileLocation, 0, '', { width: tileWidth, height: lastTile.size.height });
                 break;
             }
           }
@@ -600,7 +613,21 @@ Parkour.prototype = {
    * 检查背景图片,右侧无背景时随机产生背景,左侧背景超出屏幕时移除
    */
   checkBackgrounds: function() {
+    var _this = this;
     if (!this.backgrounds) this.backgrounds = [];
+    var lastBackground = this.backgrounds[this.backgrounds.length - 1];
+    var backgroundWidth = this.options.size.background.width;
+    while(!this.backgrounds.length || lastBackground.location < this.camera + this.options.size.container.width) {
+      if (lastBackground) {
+        this.backgrounds.push(new Parkour.Background(this, lastBackground.location + backgroundWidth, this.options.config.background, this.options.size.background, Parkour.Utils.random(this.options.assets.backgrounds)));
+      } else {
+        this.backgrounds.push(new Parkour.Background(this, 0, this.options.config.background, this.options.size.background, Parkour.Utils.random(this.options.assets.backgrounds)));
+      }
+      lastBackground = this.backgrounds[this.backgrounds.length - 1];
+    }
+    Parkour.Utils.remove(this.backgrounds, function(background) {
+      return background.destory();
+    });
   },
   /**
    * 加分
@@ -765,9 +792,7 @@ Parkour.Protagonist.prototype = {
               this.right.size.height - this.high > this.config.jump.power / this.parkour.config.fps  //为踏入地上,而是碰到地面的墙壁
             ) {
               this.status = 'DEADING';
-              var nextFrame = this.frame + 1;
-              var nextHigh = this.jumpHigh + (this.jumpPower * nextFrame + -this.config.jump.gravity * nextFrame * nextFrame / 2);
-              if (nextHigh > this.high) { //如果是上升中,直接下落
+              if (this.uping()) { //如果是上升中,直接下落
                 this.frame = 0;
                 this.jumpHigh = this.high;  //记录起跳位置
                 this.jumpPower = 0; //起跳力度
@@ -793,6 +818,11 @@ Parkour.Protagonist.prototype = {
   checkAward: function(award) {
     return this.location + this.size.width / 2 > award.location - award.size.width / 2 && this.location - this.size.width / 2 < award.location + award.size.width / 2 &&
       this.high + this.size.height > award.high && this.high < award.high + award.size.height;
+  },
+  uping: function() {
+    var nextFrame = this.frame + 1;
+    var nextHigh = this.jumpHigh + (this.jumpPower * nextFrame + -this.config.jump.gravity * nextFrame * nextFrame / 2);
+    return nextHigh > this.high;
   },
   dead: function() {
     return this.high < -this.size.height;
@@ -948,19 +978,44 @@ Parkour.Flag.prototype = {
   }
 }
 
-Parkour.Background = function(parkour, config, size, assets) {
+Parkour.Background = function(parkour, location, config, size, assets) {
   this.parkour = parkour;
   this.config = config;
   this.size = size;
   this.assets = assets;
+
+  this.location = location;
+
+  this.speed = this.config.speed(this.parkour.score, +Date.now() - this.parkour.begin);
+
+  this.el = this.initElement();
 }
 
 Parkour.Background.prototype = {
+  initElement() {
+    var element = this.assets.cloneNode();
+    element.style.position = 'absolute';
+    element.style.width = this.size.width + 'px';
+    element.style.height = this.size.height + 'px';
+    element.style.zIndex = Parkour.ZIndex.background;
+    this.parkour.container.appendChild(element);
+    return element;
+  },
   tick: function() {
-    
+    this.speed = this.config.speed(this.parkour.score, +Date.now() - this.parkour.begin);
+    this.location += this.speed;
   },
   draw: function() {
-
+    this.el.style.display = 'block';
+    this.el.style.left = (this.location - this.parkour.camera) + 'px';
+  },
+  destory: function() {
+    if (this.location + this.size.width < this.parkour.camera) {
+      this.parkour.container.removeChild(this.el);
+      return true;
+    } else {
+      return false;
+    }
   }
 }
 
@@ -972,29 +1027,55 @@ Parkour.Award = function(parkour, location, high, config, size, assets) {
   this.size = size;
   this.assets = assets;
 
+  this.frame = 0;
+
   this.status = 'HOLD';
 
-  this.el = this.initElement();
+  this.els = this.initElement();
 }
 
 Parkour.Award.prototype = {
   initElement: function() {
-    var element = this.assets.normal.cloneNode();
-    element.style.position = 'absolute';
-    element.style.width = this.size.width + 'px';
-    element.style.height = this.size.height + 'px';
-    element.style.zIndex = Parkour.ZIndex.award;
-    element.style.display = 'none';
-    this.parkour.container.appendChild(element);
-    return element;
+    var award = document.createElement('div');
+
+    var normal = [];
+    for (var i = 0; i < this.assets.normal.length; i++) {
+      var element = this.assets.normal[i].cloneNode();
+      element.style.width = this.size.width + 'px';
+      element.style.height = this.size.height + 'px';
+      element.style.display = 'none';
+      award.appendChild(element);
+      normal.push(element);
+    }
+
+    
+    award.style.position = 'absolute';
+    award.style.width = this.size.width + 'px';
+    award.style.height = this.size.height + 'px';
+    award.style.zIndex = Parkour.ZIndex.award;
+    award.style.display = 'none';
+    this.parkour.container.appendChild(award);
+
+
+    return {
+      el: award,
+      normal: normal
+    };
   },
   tick: function() {
-
+    this.frame = (this.frame + 1) % this.els.normal.length;
+  },
+  clear() {
+    for (var i = 0; i < this.els.normal.length; i++) {
+      this.els.normal[i].style.display = 'none';
+    }
   },
   draw: function() {
-    this.el.style.display = 'block';
-    this.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
-    this.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+    this.els.el.style.display = 'block';
+    this.els.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
+    this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+    this.clear();
+    this.els.normal[this.frame].style.display = 'block';
   },
   get: function() {
     this.status = 'GOT';
@@ -1002,51 +1083,10 @@ Parkour.Award.prototype = {
   },
   destory: function() {
     if (this.location + this.size.width / 2 < this.parkour.camera || this.status === 'GOT') {
-      this.parkour.container.removeChild(this.el);
+      this.parkour.container.removeChild(this.els.el);
       return true;
     } else {
       return false;
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function sum(a, b) {
-  var result = a + b;
-  return result;
-}
-
-var sum1 = sum(1, 2);
-var sum2 = sum(2, 3);
-console.log(sum1, sum2);
