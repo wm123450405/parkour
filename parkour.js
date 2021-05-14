@@ -981,7 +981,7 @@ Parkour.Protagonist.prototype = {
     this.status = 'RUNNING';
   },
   startJump: function(dpower, high) {
-    if (!dpower) dpower = this.config.jump.power / 3;
+    if (!dpower) dpower = this.config.jump.power / 4;
     if (this.status === 'RUNNING') {
       this.jumping = dpower;
       return this.jump(dpower, high);
