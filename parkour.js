@@ -170,7 +170,11 @@ var Parkour = function(container, options) {
     assets.protagonist.running = initImages(assets.protagonist.running);
     if (!assets.protagonist.jumping) throw '必须配置主角跳跃图片';
     assets.protagonist.jumping = initImage(assets.protagonist.jumping);
-    if (!assets.protagonist.staying) throw '必须配置主角跳跃图片';
+    if (!assets.protagonist.deading) throw '必须配置主角下坠死亡图片';
+    assets.protagonist.deading = initImage(assets.protagonist.deading);
+    if (!assets.protagonist.dead) throw '必须配置主角直接死亡图片';
+    assets.protagonist.dead = initImage(assets.protagonist.dead);
+    if (!assets.protagonist.staying) throw '必须配置主角站立图片';
     assets.protagonist.staying = initImage(assets.protagonist.staying);
     if (!assets.backgrounds) throw '必须配置背景图';
     assets.backgrounds = initImages(assets.backgrounds);
@@ -191,6 +195,11 @@ var Parkour = function(container, options) {
     if (!assets.flags || !assets.flags.length) throw '必须配置奖品图片'
     for (var i = 0; i < assets.flags.length; i++) {
       assets.flags[i] = initImages(assets.flags[i]);
+    }
+    if (!assets.enemies) assets.enemies = [];
+    for (var i = 0; i < assets.enemies.length; i++) {
+      assets.enemies[i].running = initImages(assets.enemies[i].running);
+      assets.enemies[i].dead = initImage(assets.enemies[i].dead);
     }
   }
 
@@ -229,10 +238,13 @@ var Parkour = function(container, options) {
   this.camera = 0;
   //浮动标记
   this.flags = [];
+  //怪物
+  this.enemies = [];
   //config
   this.tickConfig();
 
   this.checkTiles();
+  this.checkEnemies();
   this.checkProtagonist();
   this.checkAwards();
   this.checkBackgrounds();
@@ -337,6 +349,43 @@ Parkour.Utils = {
         return value;
       }
     }
+  },
+  hint: function(center, size, otherCenter, otherSize) {
+    return Parkour.Utils.hintVer(center, size, otherCenter, otherSize) === 0 && Parkour.Utils.hintHor(center, size, otherCenter, otherSize) === 0;
+  },
+  /**
+   * 返回  >0 表示在上面  <0 表示在下面  =0表示重叠
+   * @param {*} center 
+   * @param {*} size 
+   * @param {*} otherCenter 
+   * @param {*} otherSize 
+   * @returns 
+   */
+  hintVer: function(center, size, otherCenter, otherSize) {
+    if (center.y - size.height / 2 + (size.bottom || 0) >= otherCenter.y + otherSize.height / 2 - (otherSize.top || 0)) {
+      return 1;
+    } else if (center.y + size.height / 2 - (size.top || 0) <= otherCenter.y - otherSize.height / 2 + (otherSize.bottom || 0)) {
+      return -1;
+    } else {
+      return 0;
+    }
+  },
+  /**
+   * 返回  >0 表示在右侧  <0 表示在左侧  =0表示重叠
+   * @param {*} center 
+   * @param {*} size 
+   * @param {*} otherCenter 
+   * @param {*} otherSize 
+   * @returns 
+   */
+  hintHor: function(center, size, otherCenter, otherSize) {
+    if (center.x - size.width / 2 + (size.left || 0) >= otherCenter.x + otherSize.width / 2 - (otherSize.right || 0)) {
+      return 1;
+    } else if (center.x + size.width / 2 - (size.right || 0) <= otherCenter.x - otherSize.width / 2 + (otherSize.left || 0)) {
+      return -1;
+    } else {
+      return 0;
+    }
   }
 }
 
@@ -346,10 +395,10 @@ Parkour.prototype = {
     this.draw();
     this.onInited && this.onInited();
   },
-  isPlaying() {
+  isPlaying: function() {
     return this.status === 'PLAYING';
   },
-  isInited() {
+  isInited: function() {
     return this.status === 'INITED';
   },
   /**
@@ -369,6 +418,7 @@ Parkour.prototype = {
         _this.tick();
         
         _this.checkTiles();
+        _this.checkEnemies();
         _this.checkProtagonist();
         _this.checkAwards();
         _this.checkBackgrounds();
@@ -411,6 +461,9 @@ Parkour.prototype = {
     for (var i = 0; i < this.flags.length; i++) {
       this.flags[i].tick();
     }
+    for (var i = 0; i < this.enemies.length; i++) {
+      this.enemies[i].tick();
+    }
   },
   draw: function() {
     this.protagonist.draw();
@@ -428,13 +481,24 @@ Parkour.prototype = {
     for (var i = 0; i < this.flags.length; i++) {
       this.flags[i].draw();
     }
+    for (var i = 0; i < this.enemies.length; i++) {
+      this.enemies[i].draw();
+    }
   },
   check: function() {
-    this.protagonist.check();
+    this.protagonist.checkTile();
     for (var i = 0; i < this.awards.length; i++) {
-      if (this.protagonist.checkAward(this.awards[i])) {
-        this.awards[i].get();
-      }
+      this.protagonist.checkAward(this.awards[i]);
+    }
+    var maxRebound = 0;
+    var maxHigh = 0;
+    for (var i = 0; i < this.enemies.length; i++) {
+      var result = this.protagonist.checkEnemy(this.enemies[i]);
+      if (result && result.rebound > maxRebound) maxRebound = result.rebound;
+      if (result && result.high > maxHigh) maxHigh = result.high;
+    }
+    if (maxRebound) {
+      this.protagonist.jump(maxRebound, maxHigh, this.protagonist.config.jump.count);
     }
     if (this.score >= this.options.config.win.score || (+Date.now() - this.begin) >= this.options.config.win.time) {
       return true;
@@ -442,8 +506,8 @@ Parkour.prototype = {
       return false;
     }
   },
-  jump: function() {  //跳跃
-    this.protagonist.jump();
+  jump: function(power) {  //跳跃
+    this.protagonist.jump(power);
   },
   findTile: function(location) {
     for (var i = 0; i < this.tiles.length; i++) {
@@ -478,6 +542,18 @@ Parkour.prototype = {
       this.protagonist.left = this.findTile(this.protagonist.location - this.protagonist.size.width / 2);
     }
   },
+  checkEnemies: function() {
+    for (var i = 0; i < this.enemies.length; i++) {
+      var enemy = this.enemies[i];
+      enemy.tile = this.findTile(enemy.location);
+      enemy.right = this.findTile(enemy.location + enemy.size.width / 2);
+      enemy.left = this.findTile(enemy.location - enemy.size.width / 2);
+      enemy.checkTile();
+      for (var j = i + 1; j < this.enemies.length; j++) {
+        enemy.checkEnemy(this.enemies[j]);
+      }
+    }
+  },
   /**
    * 检查地块,右侧不足时填补新的地块,左侧超出屏幕时移除地块
    */
@@ -486,7 +562,7 @@ Parkour.prototype = {
     if (!this.tiles) this.tiles = [];
     var lastTile = this.tiles[this.tiles.length - 1];
     var tileWidth = this.options.size.tile.width;
-    while(!this.tiles.length || lastTile.location < this.camera + this.options.size.container.width) {
+    while(!this.tiles.length || lastTile.location < this.camera + this.options.size.container.width || Parkour.Utils.contains(this.enemies, function(enemy) { return enemy.location + enemy.size.width / 2 + 1 >= lastTile.location + tileWidth })) {
       var tile;
       var tileLocation;
       var needFlag; //当前地块必须要添加标记
@@ -556,6 +632,16 @@ Parkour.prototype = {
                 break;
             }
           }
+
+          if (tile.type === 'middle') {
+            for (var i = 0; i < this.options.config.enemies.length; i++) {
+              var enemyConfig = this.options.config.enemies[i];
+              if (Math.random() < enemyConfig.probability) {
+                this.enemies.push(new Parkour.Enemy(this, tile, Math.random() < 0.5 ? 1 : -1, enemyConfig, this.options.size.enemies[i], this.options.assets.enemies[i]));
+                break;
+              }
+            }
+          }
         }
       }
       if (needFlag) {
@@ -572,7 +658,7 @@ Parkour.prototype = {
           }
         }
       }
-      
+
       for (var i = 0; i < this.options.config.flags.length; i++) {
         var flagConfig = this.options.config.flags[i];
         if (flagConfig.float && typeof flagConfig.probability !== 'undefined' && Math.random() < flagConfig.probability) {
@@ -708,6 +794,12 @@ Parkour.Protagonist.prototype = {
     jumping.style.display = 'none';
     protagonist.appendChild(jumping);
 
+    var dead = this.assets.dead.cloneNode();
+    dead.style.width = this.size.width + 'px';
+    dead.style.height = this.size.height + 'px';
+    dead.style.display = 'none';
+    protagonist.appendChild(dead);
+
     protagonist.style.position = 'absolute';
     protagonist.style.display = 'none';
     protagonist.style.width = this.size.width + 'px';
@@ -718,7 +810,8 @@ Parkour.Protagonist.prototype = {
       el: protagonist,
       staying: staying,
       running: running,
-      jumping: jumping
+      jumping: jumping,
+      dead: dead
     };
   },
   /**
@@ -755,6 +848,7 @@ Parkour.Protagonist.prototype = {
         this.high = this.jumpHigh + (this.jumpPower * this.frame + -this.config.jump.gravity * this.frame * this.frame / 2);
         break;
       case 'DEADING':
+      case 'DEAD':
         this.frame++;
         this.high = this.jumpHigh + (this.jumpPower * this.frame + -this.config.jump.gravity * this.frame * this.frame / 2);
         break;
@@ -763,6 +857,7 @@ Parkour.Protagonist.prototype = {
   clear: function() {
     this.els.staying.style.display = 'none';
     this.els.jumping.style.display = 'none';
+    this.els.dead.style.display = 'none';
     for (var i = 0; i < this.els.running.length; i++) {
       this.els.running[i].style.display = 'none';
     }
@@ -787,17 +882,23 @@ Parkour.Protagonist.prototype = {
       case 'DEADING':
         this.els.jumping.style.display = 'block';
         break;
+      case 'DEAD':
+        this.els.dead.style.display = 'block';
+        break;
     }
   },
-  check: function() {
+  checkAward: function(award) {
+    if (this.status !== 'DEAD') {
+      if (Parkour.Utils.hint(this.center(), this.size, award.center(), award.size)) {
+        award.get();
+      }
+    }
+  },
+  checkTile: function() {
     switch (this.status) {
       case 'RUNNING':
         if (this.left.empty) {  //检查左侧是否再地面上,如果左侧离开了地面并且处于奔跑状态则切换到跳跃状态
-          this.status = 'JUMPING';
-          this.frame = 0;
-          this.jumpHigh = this.high;  //记录起跳位置
-          this.jumpPower = 0; //起跳力度
-          this.jumpCount = 1;
+          this.jump(0);
         }
         break;
       case 'JUMPING':
@@ -809,11 +910,10 @@ Parkour.Protagonist.prototype = {
             ) {
               this.status = 'DEADING';
               if (this.uping()) { //如果是上升中,直接下落
-                this.frame = 0;
-                this.jumpHigh = this.high;  //记录起跳位置
-                this.jumpPower = 0; //起跳力度
+                this.jump(0, this.high, this.config.jump.count);
+              } else {
+                this.jumpCount = this.config.jump.count;
               }
-              this.jumpCount = this.config.jump.count;
             } else {
               this.status = 'RUNNING';
               this.high = this.right.size.height;
@@ -831,14 +931,33 @@ Parkour.Protagonist.prototype = {
         break;
     }
   },
-  checkAward: function(award) {
-    return this.location + this.size.width / 2 > award.location - award.size.width / 2 && this.location - this.size.width / 2 < award.location + award.size.width / 2 &&
-      this.high + this.size.height > award.high && this.high < award.high + award.size.height;
+  checkEnemy: function(enemy) {
+    if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
+      if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
+        if (this.status !== 'JUMPING' || (Parkour.Utils.hintVer(this.prevCenter(), this.size, enemy.center(), enemy.size) <= 0)) {
+          enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
+          this.status = 'DEAD';
+          this.frame = 0;
+          this.jumpHigh = this.high;  //记录起跳位置
+          this.jumpPower = this.config.dead.power; //起跳力度
+        } else {
+          enemy.dead();
+          return { rebound: enemy.config.rebound, high: enemy.high + enemy.size.height - (enemy.size.top || 0) };
+        }
+      }
+    }
+  },
+  nextHigh: function() {
+    var nextFrame = this.frame + 1;
+    return this.jumpHigh + (this.jumpPower * nextFrame + -this.config.jump.gravity * nextFrame * nextFrame / 2);
+  },
+  prevHigh: function() {
+    if (this.frame === 0) return this.high;
+    var prevFrame = this.frame - 1;
+    return this.jumpHigh + (this.jumpPower * prevFrame + -this.config.jump.gravity * prevFrame * prevFrame / 2);
   },
   uping: function() {
-    var nextFrame = this.frame + 1;
-    var nextHigh = this.jumpHigh + (this.jumpPower * nextFrame + -this.config.jump.gravity * nextFrame * nextFrame / 2);
-    return nextHigh > this.high;
+    return this.nextHigh() > this.high;
   },
   dead: function() {
     return this.high < -this.size.height;
@@ -846,21 +965,34 @@ Parkour.Protagonist.prototype = {
   run: function() {
     this.status = 'RUNNING';
   },
-  jump: function() {
+  jump: function(power, high, count) {
     if (this.status === 'RUNNING') { //只有跑步时可以跳跃
       this.status = 'JUMPING';
       this.frame = 0;
-      this.jumpHigh = this.high;  //记录起跳位置
-      this.jumpPower = this.config.jump.power; //起跳力度
-      this.jumpCount = 1;
+      this.jumpHigh = typeof high === 'undefined' ? this.high : high;  //记录起跳位置
+      this.jumpPower = typeof power === 'undefined' ? this.config.jump.power : power; //起跳力度
+      this.jumpCount = typeof count === 'undefined' ? 1 : count;
     } else if (this.status === 'JUMPING') {
-      if (this.jumpCount < this.config.jump.count) {
+      if (this.jumpCount < this.config.jump.count || typeof count !== 'undefined' && count <= this.config.jump.count) {
         this.frame = 0;
-        this.jumpHigh = this.high;  //记录起跳位置
-        this.jumpPower = this.config.jump.power; //起跳力度
-        this.jumpCount++;
+        this.jumpHigh = typeof high === 'undefined' ? this.high : high;  //记录起跳位置
+        this.jumpPower = typeof power === 'undefined' ? this.config.jump.power : power; //起跳力度
+        if (typeof count === 'undefined') {
+          this.jumpCount++;
+        } else {
+          this.jumpCount = count;
+        }
       }
     }
+  },
+  center: function() {
+    return { x: this.location, y: this.high + this.size.height / 2 };
+  },
+  nextCenter: function() {
+    return { x: this.location + this.speed, y: this.nextHigh() + this.size.height / 2 };
+  },
+  prevCenter: function() {
+    return { x: this.location - this.speed, y: this.prevHigh() + this.size.height / 2 };
   }
 }
 
@@ -932,6 +1064,9 @@ Parkour.Tile.prototype = {
   },
   addFlag: function(config, size, assets) {
     this.flags.push(new Parkour.Flag(this.parkour, this, config, size, assets));
+  },
+  center: function() {
+    return { x: this.location + this.size.width / 2, y: this.size.height / 2 };
   }
 }
 
@@ -950,7 +1085,7 @@ Parkour.Flag = function(parkour, tile, config, size, assets) {
 }
 
 Parkour.Flag.prototype = {
-  initElement() {
+  initElement: function() {
     var flag = document.createElement('div');
 
     var frames = [];
@@ -974,18 +1109,18 @@ Parkour.Flag.prototype = {
       frames: frames
     };
   },
-  tick() {
+  tick: function() {
     this.frame = (this.frame + 1) % this.assets.length;
     if (this.config.float) {
       this.location += this.config.speed;
     }
   },
-  clear() {
+  clear: function() {
     for (var i = 0; i < this.els.frames.length; i++) {
       this.els.frames[i].style.display = 'none';
     }
   },
-  draw() {
+  draw: function() {
     this.els.el.style.display = 'block';
     this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
     this.els.el.style.left = (this.location - this.size.width / 2 - this.parkour.camera) + 'px';
@@ -1011,7 +1146,7 @@ Parkour.Background = function(parkour, location, config, size, assets) {
 }
 
 Parkour.Background.prototype = {
-  initElement() {
+  initElement: function() {
     var element = this.assets.cloneNode();
     element.style.position = 'absolute';
     element.style.width = this.size.width + 'px';
@@ -1084,7 +1219,7 @@ Parkour.Award.prototype = {
   tick: function() {
     this.frame = (this.frame + 1) % this.els.normal.length;
   },
-  clear() {
+  clear: function() {
     for (var i = 0; i < this.els.normal.length; i++) {
       this.els.normal[i].style.display = 'none';
     }
@@ -1107,5 +1242,137 @@ Parkour.Award.prototype = {
     } else {
       return false;
     }
+  },
+  center: function() {
+    return { x: this.location, y: this.high + this.size.height / 2 };
+  }
+}
+
+Parkour.Enemy = function(parkour, tile, direction, config, size, assets) {
+  this.parkour = parkour;
+  this.tile = tile;
+  this.right = tile;
+  this.left = tile;
+  this.direction = direction;
+  this.config = config;
+  this.size = size;
+  this.assets = assets;
+
+  this.location = tile.location + tile.size.width / 2;
+  this.high = tile.size.height;
+  this.status = 'RUNNING';
+  this.frame = 0;
+
+  this.els = this.initElement();
+}
+
+Parkour.Enemy.prototype = {
+  initElement: function() {
+    var enemy = document.createElement('div');
+
+    var running = [];
+    for (var i = 0; i < this.assets.running.length; i++) {
+      var r = this.assets.running[i].cloneNode();
+      r.style.width = this.size.width + 'px';
+      r.style.height = this.size.height + 'px';
+      r.style.display = 'none';
+      enemy.appendChild(r);
+      running.push(r);
+    }
+
+    var dead = this.assets.dead.cloneNode();
+    dead.style.width = this.size.width + 'px';
+    dead.style.height = this.size.height + 'px';
+    dead.style.display = 'none';
+    enemy.appendChild(dead);
+
+
+    enemy.style.position = 'absolute';
+    enemy.style.width = this.size.width + 'px';
+    enemy.style.height = this.size.height + 'px';
+    enemy.style.zIndex = Parkour.ZIndex.enemy;
+    enemy.style.display = 'none';
+    this.parkour.container.appendChild(enemy);
+    return {
+      el: enemy,
+      running: running,
+      dead: dead
+    }
+  },
+  tick: function() {
+    if (this.status === 'RUNNING') {
+      this.location += this.direction;
+      this.frame = (this.frame + 1) % this.assets.running.length;
+    } else if (this.status === 'JUMPING' || this.status === 'DEAD') {
+      this.frame++;
+    }
+  },
+  clear: function() {
+    for (var i = 0; i < this.els.running.length; i++) {
+      this.els.running[i].style.display = 'none';
+    }
+    this.els.dead.style.display = 'none';
+  },
+  draw: function() {
+    this.els.el.style.display = 'block';
+    this.els.el.style.left = (this.location - this.parkour.camera - this.size.width / 2) + 'px';
+    this.els.el.style.top = (this.parkour.size.height - this.high - this.size.height) + 'px';
+    this.els.el.style.transform = 'scale(' + this.direction + ',1)';
+
+    this.clear();
+    if (this.status === 'RUNNING') {
+      this.els.running[this.frame].style.display = 'block';
+    } else if (this.status === 'JUMPING') {
+      this.els.running[this.frame].style.display = 'block';
+    } else if (this.status === 'DEAD') {
+      this.els.dead.style.display = 'block';
+    }
+  },
+  checkTile: function() {
+    if (this.status === 'RUNNING') {
+      if (this.direction > 0) {
+        if (this.right && this.right.empty) {
+          this.turn();
+        }
+      } else if (this.direction < 0) {
+        if (this.left && this.left.empty) {
+          this.turn();
+        }
+      }
+    }
+  },
+  checkEnemy: function(enemy) {
+    if ((this.status !== 'DEAD' || this.config.hold) && (enemy.status !== 'DEAD' || enemy.config.hold)) {
+      if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
+        var direction = this.location > enemy.location ? 1 : -1;
+        if (direction === enemy.direction) {
+          enemy.turn();
+        }
+        if (direction !== this.direction) {
+          this.turn();
+        }
+      }
+    }
+  },
+  dead() {
+    this.status = 'DEAD';
+  },
+  turn(direction) {
+    if (typeof direction === 'undefined') {
+      this.direction = -this.direction;
+    } else {
+      this.direction = direction;
+    }
+  },
+  destory: function() {
+    if (this.location + this.size.width / 2 < this.parkour.camera || this.high < -this.size.height) {
+      this.parkour.container.removeChild(this.els.el);
+      return true;
+    } else {
+      return false;
+    }
+  },
+  center: function() {
+    return { x: this.location, y: this.high + this.size.height / 2 };
   }
 }

@@ -183,6 +183,20 @@
               width: 54,
               height: 36
             }
+          ],
+          enemies: [
+            {
+              width: 18,
+              height: 18,
+              top: 4,
+              left: 2,
+              right: 2
+            },
+            {
+              width: 18,
+              height: 27,
+              top: 12
+            }
           ]
         },
         assets: {               //各资源的配置
@@ -193,7 +207,9 @@
               'images/protagonist-running-2.png',
               'images/protagonist-running-3.png'
             ],
-            jumping: 'images/protagonist-jumping.png'  //跳跃动作的图片
+            jumping: 'images/protagonist-jumping.png',  //跳跃动作的图片
+            deading: 'images/protagonist-deading.png',  //死亡坠落的图片
+            dead: 'images/protagonist-dead.png'
           },
           backgrounds: [         //背景图,(背景滚动时可以多张首尾衔接)
             'images/background-1.png',
@@ -292,6 +308,24 @@
             ['images/flag-4.png'],
             ['images/flag-5.png'],
             ['images/flag-6.png']
+          ],
+          enemies: [
+            {
+              running: [
+                'images/enemy-1-1.png',
+                'images/enemy-1-2.png',
+                'images/enemy-1-3.png',
+                'images/enemy-1-4.png',
+              ],
+              dead: 'images/enemy-1-dead.png'
+            },
+            {
+              running: [
+                'images/enemy-2-1.png',
+                'images/enemy-2-2.png'
+              ],
+              dead: 'images/enemy-2-dead.png'
+            }
           ]
         },
         config: {
@@ -305,6 +339,9 @@
               power: 8,         //跳跃力度(px/f)
               gravity: 0.4,     //重力加速度(px/f²)
               count: 1          //弹跳次数(可支持多段跳)
+            },
+            dead: {
+              power: 2          //死亡弹跳效果
             }
           },
           awards: [             //奖品配置
@@ -354,7 +391,20 @@
           },
           background: {
             speed: 2           //背景卷动的速度
-          }
+          },
+          enemies: [
+            {
+              probability: 0.1,
+              jump: false,        //是否可以跳跃(飞天),为false表示不跳跃,{min,max}
+              rebound: 1.5      //反弹力度
+            },
+            {
+              probability: 0.05,
+              jump: false,
+              rebound: 1.5,      //反弹力度
+              hold: true
+            }
+          ]
         }
       });
       parkour.onInited = function() {
