@@ -509,6 +509,12 @@ Parkour.prototype = {
   jump: function(power) {  //跳跃
     this.protagonist.jump(power);
   },
+  startJump: function(dpower) {  //起跳
+    this.protagonist.startJump(dpower);
+  },
+  stopJump: function() {  //停止跳跃
+    this.protagonist.stopJump();
+  },
   findTile: function(location) {
     for (var i = 0; i < this.tiles.length; i++) {
       if (this.tiles[i].location <= location && this.tiles[i].location + this.tiles[i].size.width > location) {
@@ -764,6 +770,8 @@ Parkour.Protagonist = function(parkour, tile, config, size, assets) {
   this.location = this.config.run.start;  //主角当前的位置
   this.high = tile.size.height; //主角高度=地块的高度
   this.speed = this.config.run.speed(0, 0); //主角的移动速度(撞墙后停止)
+
+  this.jumping = false;   //蓄力跳跃
   
   this.els = this.initElement();
 }
@@ -830,6 +838,7 @@ Parkour.Protagonist.prototype = {
   },
   tick: function() {
     this.speed = this.config.run.speed(this.parkour.score, +Date.now() - this.parkour.begin);
+    if (this.jumping) this.jumpPower = Math.min(Math.sqrt(this.jumpPower * this.jumpPower * 2 + this.jumping * this.jumping * 2), this.config.jump.power);
     switch (this.status) {
       case 'READY':
         this.frame = 0;
@@ -918,6 +927,9 @@ Parkour.Protagonist.prototype = {
               this.status = 'RUNNING';
               this.high = this.right.size.height;
               this.frame = 0;
+              if (this.jumping) {
+                this.startJump(this.jumping, this.right.size.height)
+              }
             }
           }
         } else if (!this.left.empty) { //再检查左侧是否落地
@@ -925,15 +937,18 @@ Parkour.Protagonist.prototype = {
             this.status = 'RUNNING';
             this.high = this.left.size.height;
             this.frame = 0;
+            if (this.jumping) {
+              this.startJump(this.jumping, this.left.size.height)
+            }
           }
         }
-
         break;
     }
   },
   checkEnemy: function(enemy) {
     if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
+        this.jumping = false;
         if (this.status !== 'JUMPING' || (Parkour.Utils.hintVer(this.prevCenter(), this.size, enemy.center(), enemy.size) <= 0)) {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
@@ -965,6 +980,17 @@ Parkour.Protagonist.prototype = {
   run: function() {
     this.status = 'RUNNING';
   },
+  startJump: function(dpower, high) {
+    if (this.status === 'RUNNING') {
+      if (!dpower) dpower = this.config.jump.power / 3;
+      this.jumping = dpower;
+      return this.jump(dpower, high);
+    }
+    return false;
+  },
+  stopJump: function() {
+    this.jumping = false;
+  },
   jump: function(power, high, count) {
     if (this.status === 'RUNNING') { //只有跑步时可以跳跃
       this.status = 'JUMPING';
@@ -972,6 +998,7 @@ Parkour.Protagonist.prototype = {
       this.jumpHigh = typeof high === 'undefined' ? this.high : high;  //记录起跳位置
       this.jumpPower = typeof power === 'undefined' ? this.config.jump.power : power; //起跳力度
       this.jumpCount = typeof count === 'undefined' ? 1 : count;
+      return true;
     } else if (this.status === 'JUMPING') {
       if (this.jumpCount < this.config.jump.count || typeof count !== 'undefined' && count <= this.config.jump.count) {
         this.frame = 0;
@@ -982,8 +1009,10 @@ Parkour.Protagonist.prototype = {
         } else {
           this.jumpCount = count;
         }
+        return true;
       }
     }
+    return false;
   },
   center: function() {
     return { x: this.location, y: this.high + this.size.height / 2 };

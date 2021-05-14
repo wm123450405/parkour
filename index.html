@@ -402,8 +402,11 @@
               probability: 0.05,
               jump: false,
               rebound: 1.5,      //反弹力度
-              hold: true
-            }
+              hold: true        //死亡后是否保留尸体
+            },
+            // {
+            //   gravity: 0.2
+            // }
           ]
         }
       });
@@ -428,15 +431,28 @@
     window.onload = function() {
       initParkour();
       document.body.onclick = function() {
-        if (parkour.isPlaying()) {
-          parkour.jump();
-        } else if (parkour.isInited()) {
+        if (parkour.isInited() && !parkour.isPlaying()) {
           parkour.start();
         }
         if (document.documentElement.scrollTop !== 0) {
           document.documentElement.scrollTop = 0;
         }
       }
+      document.body.onmousedown = function() {
+        parkour.startJump();
+      }
+      document.body.ontouchstart = function() {
+        parkour.startJump();
+      }
+      document.body.onmouseup = function() {
+        parkour.stopJump();
+      }
+      document.body.ontouchend = function() {
+        parkour.stopJump();
+      }
+      document.οncοntextmenu=function(e){
+        e.preventDefault();
+      };
       refresh();
     }
   </script>
