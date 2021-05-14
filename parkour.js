@@ -771,7 +771,7 @@ Parkour.Protagonist = function(parkour, tile, config, size, assets) {
   this.high = tile.size.height; //主角高度=地块的高度
   this.speed = this.config.run.speed(0, 0); //主角的移动速度(撞墙后停止)
 
-  this.jumping = false;   //蓄力跳跃
+  this.jumping = 0;   //蓄力跳跃
   
   this.els = this.initElement();
 }
@@ -838,7 +838,7 @@ Parkour.Protagonist.prototype = {
   },
   tick: function() {
     this.speed = this.config.run.speed(this.parkour.score, +Date.now() - this.parkour.begin);
-    if (this.jumping) this.jumpPower = Math.min(Math.sqrt(this.jumpPower * this.jumpPower * 2 + this.jumping * this.jumping * 2), this.config.jump.power);
+    if (this.jumping > 0) this.jumpPower = Math.min(Math.sqrt(this.jumpPower * this.jumpPower * 2 + this.jumping * this.jumping * 2), this.config.jump.power);
     switch (this.status) {
       case 'READY':
         this.frame = 0;
@@ -928,7 +928,7 @@ Parkour.Protagonist.prototype = {
               this.high = this.right.size.height;
               this.frame = 0;
               if (this.jumping) {
-                this.startJump(this.jumping, this.right.size.height)
+                this.startJump(Math.abs(this.jumping), this.right.size.height)
               }
             }
           }
@@ -938,7 +938,7 @@ Parkour.Protagonist.prototype = {
             this.high = this.left.size.height;
             this.frame = 0;
             if (this.jumping) {
-              this.startJump(this.jumping, this.left.size.height)
+              this.startJump(Math.abs(this.jumping), this.left.size.height)
             }
           }
         }
@@ -948,7 +948,7 @@ Parkour.Protagonist.prototype = {
   checkEnemy: function(enemy) {
     if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
-        this.jumping = false;
+        this.jumping = 0;
         if (this.status !== 'JUMPING' || (Parkour.Utils.hintVer(this.prevCenter(), this.size, enemy.center(), enemy.size) <= 0)) {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
@@ -985,11 +985,13 @@ Parkour.Protagonist.prototype = {
       if (!dpower) dpower = this.config.jump.power / 3;
       this.jumping = dpower;
       return this.jump(dpower, high);
+    } else {
+      this.jumping = -dpower;
     }
     return false;
   },
   stopJump: function() {
-    this.jumping = false;
+    this.jumping = 0;
   },
   jump: function(power, high, count) {
     if (this.status === 'RUNNING') { //只有跑步时可以跳跃
