@@ -438,15 +438,17 @@
           document.documentElement.scrollTop = 0;
         }
       }
-      document.body.ontouchstart = function() {
+      document.body.ontouchstart = function(e) {
         if (parkour.isPlaying()) {
           parkour.startJump();
         }
+        e.preventDefault();
       }
-      document.body.ontouchend = function() {
+      document.body.ontouchend = function(e) {
         if (parkour.isPlaying()) {
           parkour.stopJump();
         }
+        e.preventDefault();
       }
       document.οncοntextmenu = function(e) {
         e.preventDefault();
