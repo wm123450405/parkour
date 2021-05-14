@@ -431,26 +431,24 @@
     window.onload = function() {
       initParkour();
       document.body.onclick = function() {
-        if (parkour.isInited() && !parkour.isPlaying()) {
+        if (parkour.isInited()) {
           parkour.start();
         }
         if (document.documentElement.scrollTop !== 0) {
           document.documentElement.scrollTop = 0;
         }
       }
-      document.body.onmousedown = function() {
-        parkour.startJump();
-      }
       document.body.ontouchstart = function() {
-        parkour.startJump();
-      }
-      document.body.onmouseup = function() {
-        parkour.stopJump();
+        if (parkour.isPlaying()) {
+          parkour.startJump();
+        }
       }
       document.body.ontouchend = function() {
-        parkour.stopJump();
+        if (parkour.isPlaying()) {
+          parkour.stopJump();
+        }
       }
-      document.οncοntextmenu=function(e){
+      document.οncοntextmenu = function(e) {
         e.preventDefault();
       };
       refresh();
