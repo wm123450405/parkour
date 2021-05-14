@@ -431,15 +431,14 @@
     window.onload = function() {
       initParkour();
       document.body.onclick = function() {
-        if (parkour.isInited()) {
-          parkour.start();
-        }
         if (document.documentElement.scrollTop !== 0) {
           document.documentElement.scrollTop = 0;
         }
       }
       document.body.ontouchstart = function(e) {
-        if (parkour.isPlaying()) {
+        if (parkour.isInited()) {
+          parkour.start();
+        } else if (parkour.isPlaying()) {
           parkour.startJump();
         }
         e.preventDefault();
