@@ -452,21 +452,18 @@
 
     window.onload = function() {
       initParkour();
-      document.body.onclick = function() {
-        if (document.documentElement.scrollTop !== 0) {
-          document.documentElement.scrollTop = 0;
-        }
-      }
       document.body.ontouchstart = function(e) {
-        if (parkour.isInited()) {
-          parkour.start();
-        } else if (parkour.isPlaying()) {
+        if (parkour.isPlaying()) {
           parkour.startJump();
         }
         e.preventDefault();
       }
       document.body.ontouchend = function(e) {
-        if (parkour.isPlaying()) {
+        if (parkour.isInited()) {
+          if (document.documentElement.scrollTop < 200) {
+            parkour.start();
+          }
+        } else if (parkour.isPlaying()) {
           parkour.stopJump();
         }
         e.preventDefault();

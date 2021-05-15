@@ -435,7 +435,7 @@ Parkour.prototype = {
             } else {
               _this.onLose && _this.onLose();
             }
-          })
+          }, Math.floor(1000 / _this.config.fps));
         } else {
           loop();
         }
