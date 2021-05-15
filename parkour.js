@@ -915,7 +915,7 @@ Parkour.Protagonist.prototype = {
           if (this.right.size.height >= this.high) { //低于地面了
             if (this.right.type === 'left' && //右脚踏入一个左侧地块
               this.right.location >= this.location + this.size.width / 2 - this.speed && //并且是刚刚踏入
-              this.right.size.height - this.high > this.config.jump.power / this.parkour.config.fps  //为踏入地上,而是碰到地面的墙壁
+              this.right.size.height > this.prevHigh()  //为踏入地上,而是碰到地面的墙壁
             ) {
               this.status = 'DEADING';
               if (this.uping()) { //如果是上升中,直接下落
@@ -949,7 +949,8 @@ Parkour.Protagonist.prototype = {
     if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
         this.jumping = 0;
-        if (this.status !== 'JUMPING' || (Parkour.Utils.hintVer(this.prevCenter(), this.size, enemy.center(), enemy.size) <= 0)) {
+        var hintVer = this.high - (enemy.high + (enemy.size.botton || 0));
+        if (this.status !== 'JUMPING' || hintVer < 0 || (!enemy.config.jump || !this.uping()) && hintVer === 0) {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
           this.frame = 0;
@@ -957,7 +958,7 @@ Parkour.Protagonist.prototype = {
           this.jumpPower = this.config.dead.power; //起跳力度
         } else {
           enemy.dead();
-          return { rebound: enemy.config.rebound, high: enemy.high + enemy.size.height - (enemy.size.top || 0) };
+          return { rebound: enemy.config.rebound, high: hintVer === 0 ? this.high : (enemy.high + enemy.size.height - (enemy.size.top || 0)) };
         }
       }
     }
@@ -1289,10 +1290,15 @@ Parkour.Enemy = function(parkour, tile, direction, config, size, assets) {
   this.size = size;
   this.assets = assets;
 
+  this.speed = config.speed;
   this.location = tile.location + tile.size.width / 2;
   this.high = tile.size.height;
-  this.status = 'RUNNING';
+  this.status = config.jump ? 'JUMPING' : 'RUNNING';
   this.frame = 0;
+  this.hold = config.hold;
+  if (config.jump) {
+    this.jump();
+  }
 
   this.els = this.initElement();
 }
@@ -1331,11 +1337,15 @@ Parkour.Enemy.prototype = {
     }
   },
   tick: function() {
-    if (this.status === 'RUNNING') {
-      this.location += this.direction;
+    if (this.status === 'RUNNING' || this.status === 'JUMPING') {
+      this.location += this.direction * this.speed;
       this.frame = (this.frame + 1) % this.assets.running.length;
-    } else if (this.status === 'JUMPING' || this.status === 'DEAD') {
+    } else if (this.status === 'DEAD' || this.status === 'DEADING') {
       this.frame++;
+    }
+    if (this.status === 'JUMPING' || this.status === 'DEADING') {
+      this.jumpFrame++;
+      this.high = this.jumpHigh + (this.jumpPower * this.jumpFrame + -this.jumpGravity * this.jumpFrame * this.jumpFrame / 2);
     }
   },
   clear: function() {
@@ -1355,6 +1365,8 @@ Parkour.Enemy.prototype = {
       this.els.running[this.frame].style.display = 'block';
     } else if (this.status === 'JUMPING') {
       this.els.running[this.frame].style.display = 'block';
+    } else if (this.status === 'DEADING') {
+      this.els.dead.style.display = 'block';
     } else if (this.status === 'DEAD') {
       this.els.dead.style.display = 'block';
     }
@@ -1370,10 +1382,47 @@ Parkour.Enemy.prototype = {
           this.turn();
         }
       }
+    } else if (this.status === 'JUMPING') {
+      if (this.direction > 0) {
+        if (this.right && !this.right.empty && this.right.size.height > this.high) {
+          if (this.right.type === 'left' && //右脚踏入一个左侧地块
+            this.right.location >= this.location + this.size.width / 2 - this.speed && //并且是刚刚踏入
+            this.right.size.height > this.prevHigh()  //为踏入地上,而是碰到地面的墙壁
+          ) {
+            this.turn();
+          } else {
+            this.jump();
+          }
+        }
+      } else if (this.direction < 0) {
+        if (this.left && !this.left.empty && this.left.size.height > this.high) {
+          if (this.left.type === 'right' && //右脚踏入一个左侧地块
+            this.left.location <= this.location - this.size.width / 2 + this.speed && //并且是刚刚踏入
+            this.left.size.height > this.prevHigh()  //为踏入地上,而是碰到地面的墙壁
+          ) {
+            this.turn();
+          } else {
+            this.jump();
+          }
+        }
+      }
+      if (this.tile && !this.tile.empty && this.tile.size.height > this.high) {
+        this.jump();
+      }
+    } else if (this.status === 'DEADING') {
+      if (this.tile && !this.tile.empty && this.tile.size.height > this.high) {
+        this.high = this.tile.size.height;
+      }
     }
   },
+  jump() {
+    this.jumpFrame = 0;
+    this.jumpHigh = this.high;
+    this.jumpPower = this.config.jump;
+    this.jumpGravity = this.config.gravity;
+  },
   checkEnemy: function(enemy) {
-    if ((this.status !== 'DEAD' || this.config.hold) && (enemy.status !== 'DEAD' || enemy.config.hold)) {
+    if ((this.status !== 'DEAD' && this.status !== 'DEADING' || this.hold) && (enemy.status !== 'DEAD' && enemy.status !== 'DEADING' || enemy.hold)) {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
         var direction = this.location > enemy.location ? 1 : -1;
         if (direction === enemy.direction) {
@@ -1386,7 +1435,17 @@ Parkour.Enemy.prototype = {
     }
   },
   dead() {
-    this.status = 'DEAD';
+    if (this.status === 'RUNNING') {
+      this.status = 'DEAD';
+      this.speed = 0;
+    } else if (this.status === 'JUMPING') {
+      this.status = 'DEADING';
+      this.speed = 0;
+      this.jumpFrame = 0;
+      this.jumpHigh = this.high;
+      this.jumpPower = 0;
+      this.jumpGravity = this.parkour.protagonist.config.jump.gravity;
+    }
   },
   turn(direction) {
     if (typeof direction === 'undefined') {
@@ -1405,5 +1464,14 @@ Parkour.Enemy.prototype = {
   },
   center: function() {
     return { x: this.location, y: this.high + this.size.height / 2 };
+  },
+  nextHigh: function() {
+    var nextFrame = this.jumpFrame + 1;
+    return this.jumpHigh + (this.jumpPower * nextFrame + -this.jumpGravity * nextFrame * nextFrame / 2);
+  },
+  prevHigh: function() {
+    if (this.jumpFrame === 0) return this.high;
+    var prevFrame = this.jumpFrame - 1;
+    return this.jumpHigh + (this.jumpPower * prevFrame + -this.jumpGravity * prevFrame * prevFrame / 2);
   }
 }
