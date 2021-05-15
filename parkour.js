@@ -951,7 +951,7 @@ Parkour.Protagonist.prototype = {
         this.jumping = 0;
         var hintBottomVer = this.high - (enemy.high + (enemy.size.bottom || 0));
         var hintTopVer = this.high - (enemy.high + enemy.size.height - (enemy.size.top || 0));
-        if (this.status !== 'JUMPING' || hintBottomVer < 0 || (!enemy.config.jump || !this.uping()) && hintTopVer < 0) {
+        if (this.status !== 'JUMPING' || hintBottomVer <＝ 0 || (!enemy.config.jump || !this.uping()) && hintTopVer < 0) {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
           this.frame = 0;
