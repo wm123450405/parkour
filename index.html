@@ -5,6 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1, minimum-scale=1,maximum-scale=1">
   <title>Document</title>
+  <link href="https://cdn.bootcdn.net/ajax/libs/jquery-impromptu/6.2.3/jquery-impromptu.min.css" rel="stylesheet">
   <style>
     * { padding: 0; margin: 0; }
 
@@ -47,9 +48,12 @@
   </style>
   <script src="parkour.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.1/dist/av-min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery-impromptu/6.2.3/jquery-impromptu.min.js"></script>
   <script>
     var savedUser = localStorage.getItem('user');
     var ranks = [];
+    var inputing = false;
 
     AV.init({
       appId: "Mp8cpIMsHcuDLR8RCsroqlII-9Nh9j0Va",
@@ -57,7 +61,7 @@
       serverURL: "https://mp8cpims.lc-cn-e1-shared.com"
     });
 
-    function saveScore(score) {
+    function saveScore(score, callbck) {
       if (score > 0) {
         var user = localStorage.getItem('user') || savedUser;
         if (!user) {
@@ -65,9 +69,21 @@
           for (var i = 0; i < 10; i++) {
             user += String.fromCharCode(Math.floor(Math.random() * 26) + 'a'.charCodeAt(0));
           }
-          user = prompt("恭喜你获得" + score + "分,请输入用户名上传结果", user) || user;
-        }
-        if (user) {
+          inputing = true;
+          $.prompt('<input id="user" type="text" value="' + user + '" style="width: 100%; padding: 5px; box-sizing: border-box; border: 1px solid;" />', {
+            title: '恭喜你获得' + score + '分,请输入用户名上传结果',
+            submit: function(event, value) {
+              inputing = false;
+              if (value && document.getElementById('user').value) {
+                savedUser = document.getElementById('user').value;
+                localStorage.setItem('user', savedUser);
+                saveScore(score, callbck);
+              } else {
+                callbck && callbck();
+              }
+            }
+          });
+        } else {
           var Score = AV.Object.extend('Score');
           var data = new Score();
           data.set('score', score);
@@ -79,9 +95,10 @@
           });
           savedUser = user;
           localStorage.setItem('user', user);
-        } else {
-          refresh();
+          callbck && callbck();
         }
+      } else {
+        callbck && callbck();
       }
     }
 
@@ -439,14 +456,26 @@
         document.getElementById('score').innerHTML = score;
       }
       parkour.onWin = function() {
-        alert('获胜');
-        saveScore(parkour.score);
-        initParkour();
+        inputing = true;
+        $.prompt('恭喜你获胜', {
+          submit: function() {
+            inputing = false;
+            saveScore(parkour.score, function() {
+              initParkour();
+            });
+          }
+        })
       }
       parkour.onLose = function() {
-        alert('游戏结束');
-        saveScore(parkour.score);
-        initParkour();
+        inputing = true;
+        $.prompt('游戏结束', {
+          submit: function() {
+            inputing = false;
+            saveScore(parkour.score, function() {
+              initParkour();
+            });
+          }
+        });
       }
     }
 
@@ -456,17 +485,21 @@
         if (parkour.isPlaying()) {
           parkour.startJump();
         }
-        e.preventDefault();
+        if (!inputing) {
+          e.preventDefault();
+        }
       }
       document.body.ontouchend = function(e) {
         if (parkour.isInited()) {
-          if (document.documentElement.scrollTop < 200) {
+          if (document.documentElement.scrollTop < 200 && !inputing) {
             parkour.start();
           }
         } else if (parkour.isPlaying()) {
           parkour.stopJump();
         }
-        e.preventDefault();
+        if (!inputing) {
+          e.preventDefault();
+        }
       }
       document.οncοntextmenu = function(e) {
         e.preventDefault();
