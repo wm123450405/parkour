@@ -949,8 +949,9 @@ Parkour.Protagonist.prototype = {
     if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
         this.jumping = 0;
-        var hintVer = this.high - (enemy.high + (enemy.size.botton || 0));
-        if (this.status !== 'JUMPING' || hintVer < 0 || (!enemy.config.jump || !this.uping()) && hintVer === 0) {
+        var hintBottomVer = this.high - (enemy.high + (enemy.size.bottom || 0));
+        var hintTopVer = this.high - (enemy.high + enemy.size.height - (enemy.size.top || 0));
+        if (this.status !== 'JUMPING' || hintBottomVer < 0 || (!enemy.config.jump || !this.uping()) && hintTopVer < 0) {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
           this.frame = 0;
@@ -958,7 +959,7 @@ Parkour.Protagonist.prototype = {
           this.jumpPower = this.config.dead.power; //起跳力度
         } else {
           enemy.dead();
-          return { rebound: enemy.config.rebound, high: hintVer === 0 ? this.high : (enemy.high + enemy.size.height - (enemy.size.top || 0)) };
+          return { rebound: enemy.config.rebound, high: hintTopVer < 0 ? this.high : (enemy.high + enemy.size.height - (enemy.size.top || 0)) };
         }
       }
     }
