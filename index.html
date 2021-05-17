@@ -482,7 +482,7 @@
 
     window.onload = function() {
       initParkour();
-      document.body.ontouchstart = function(e) {
+      document.body.ontouchstart = document.body.onmousedown = function(e) {
         if (parkour.isPlaying()) {
           parkour.startJump();
         }
@@ -490,7 +490,7 @@
           e.preventDefault();
         }
       }
-      document.body.ontouchend = function(e) {
+      document.body.ontouchend = document.body.onmouseup = function(e) {
         if (parkour.isInited()) {
           if (document.documentElement.scrollTop < 200 && !inputing) {
             parkour.start();
