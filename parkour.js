@@ -486,10 +486,6 @@ Parkour.prototype = {
     }
   },
   check: function() {
-    this.protagonist.checkTile();
-    for (var i = 0; i < this.awards.length; i++) {
-      this.protagonist.checkAward(this.awards[i]);
-    }
     var maxRebound = 0;
     var maxHigh = 0;
     for (var i = 0; i < this.enemies.length; i++) {
@@ -499,6 +495,10 @@ Parkour.prototype = {
     }
     if (maxRebound) {
       this.protagonist.jump(maxRebound, maxHigh, this.protagonist.config.jump.count);
+    }
+    this.protagonist.checkTile();
+    for (var i = 0; i < this.awards.length; i++) {
+      this.protagonist.checkAward(this.awards[i]);
     }
     if (this.score >= this.options.config.win.score || (+Date.now() - this.begin) >= this.options.config.win.time) {
       return true;
@@ -946,20 +946,22 @@ Parkour.Protagonist.prototype = {
     }
   },
   checkEnemy: function(enemy) {
-    if (this.status !== 'DEAD' && enemy.status !== 'DEAD') {
+    if (this.status !== 'DEAD' && enemy.status !== 'DEAD' && enemy.status !== 'DEADING') {
       if (Parkour.Utils.hint(this.center(), this.size, enemy.center(), enemy.size)) {
         this.jumping = 0;
-        var hintBottomVer = this.high - (enemy.high + (enemy.size.bottom || 0));
-        var hintTopVer = this.high - (enemy.high + enemy.size.height - (enemy.size.top || 0));
-        if (this.status !== 'JUMPING' || hintBottomVer <＝ 0 || (!enemy.config.jump || !this.uping()) && hintTopVer < 0) {
+        var hintTopPrev = this.prevHigh() - (Math.min(enemy.prevHigh(), enemy.high) + enemy.size.height - (enemy.size.top || 0));
+        var hintBottomPrev = this.prevHigh() - (Math.min(enemy.prevHigh(), enemy.high) + (enemy.size.bottom || 0));
+        var hintHorPrev = Parkour.Utils.hintHor(this.prevCenter(), this.size, enemy.center(), enemy.size);
+        console.log(this.prevHigh(), hintTopPrev, hintBottomPrev, hintHorPrev, this.uping());
+        if (this.status === 'JUMPING' && (enemy.config.jump ? (this.uping() ? hintBottomPrev >= 0 && hintHorPrev <= 0 : hintTopPrev >= 0) : (hintTopPrev >= 0))) {
+          enemy.dead();
+          return { rebound: enemy.config.rebound, high: this.uping() ? this.high : (enemy.high + enemy.size.height - (enemy.size.top || 0)) };
+        } else {
           enemy.turn(this.center().x > enemy.center().x ? 1 : -1);
           this.status = 'DEAD';
           this.frame = 0;
           this.jumpHigh = this.high;  //记录起跳位置
           this.jumpPower = this.config.dead.power; //起跳力度
-        } else {
-          enemy.dead();
-          return { rebound: enemy.config.rebound, high: hintTopVer < 0 ? this.high : (enemy.high + enemy.size.height - (enemy.size.top || 0)) };
         }
       }
     }
@@ -974,7 +976,7 @@ Parkour.Protagonist.prototype = {
     return this.jumpHigh + (this.jumpPower * prevFrame + -this.config.jump.gravity * prevFrame * prevFrame / 2);
   },
   uping: function() {
-    return this.nextHigh() > this.high;
+    return this.nextHigh() > this.high || this.prevHigh() < this.high;
   },
   dead: function() {
     return this.high < -this.size.height;
@@ -1299,6 +1301,7 @@ Parkour.Enemy = function(parkour, tile, direction, config, size, assets) {
   this.hold = config.hold;
   if (config.jump) {
     this.jump();
+    this.jumpFrame = config.jump ? Math.floor(Math.random() * config.jump / config.gravity) : 0;
   }
 
   this.els = this.initElement();
@@ -1415,6 +1418,9 @@ Parkour.Enemy.prototype = {
         this.high = this.tile.size.height;
       }
     }
+  },
+  maxHigh: function() {
+    return this.config.jump ? this.config.jump * this.config.jump / 2 / this.config.gravity : 0;
   },
   jump() {
     this.jumpFrame = 0;
