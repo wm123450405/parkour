@@ -1477,7 +1477,7 @@ Parkour.Enemy.prototype = {
     return this.jumpHigh + (this.jumpPower * nextFrame + -this.jumpGravity * nextFrame * nextFrame / 2);
   },
   prevHigh: function() {
-    if (this.jumpFrame === 0) return this.high;
+    if (!this.jumpFrame) return this.high;
     var prevFrame = this.jumpFrame - 1;
     return this.jumpHigh + (this.jumpPower * prevFrame + -this.jumpGravity * prevFrame * prevFrame / 2);
   }
